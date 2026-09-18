@@ -80,6 +80,9 @@ const BACKUP_FILES = [
   'scripts/build-sitemap.mjs',
   'scripts/vercel-ignore.sh',
   'tsconfig.api.json',
+  'scripts/link-api.mjs',
+  'scripts/unlink-api.mjs',
+  'package.json',
   'vercel.json',
 ];
 

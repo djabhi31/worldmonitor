@@ -21,6 +21,9 @@ public/accuracy/
 public/crawlable-corpus.json
 # Volatile inventory metrics are derived during install/build. Stable product
 # lifecycle, pricing, and catalog artifacts remain committed.
+# Build-time symlink to _api
+api
+api/
 public/product-facts.json
 api/_inventory-facts.generated.js
 _api/_inventory-facts.generated.js

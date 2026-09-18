@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build:full",
+  "buildCommand": "node scripts/link-api.mjs && npm run build:full && node scripts/unlink-api.mjs",
   "ignoreCommand": "bash scripts/vercel-ignore.sh",
   "crons": [],
   "redirects": [
