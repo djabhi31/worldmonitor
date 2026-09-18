@@ -25,13 +25,22 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // copy (see withStatsRoot below) so a sibling test scanning the REAL repo
 // can never observe the probe. null means the real ROOT.
 let rootOverride = null;
-const rootOf = () => rootOverride ?? ROOT;
-const read = (p) => readFileSync(join(rootOf(), p), 'utf8');
+const resolvePath = (p) => {
+  const primary = join(rootOf(), p);
+  if (p === 'api' || p.startsWith('api/') || p.startsWith('api\\')) {
+    const alternate = join(rootOf(), p.replace(/^api(\/|\\|$)/, '_api$1'));
+    if (!statSync(primary, { throwIfNoEntry: false }) && statSync(alternate, { throwIfNoEntry: false })) {
+      return alternate;
+    }
+  }
+  return primary;
+};
+const read = (p) => readFileSync(resolvePath(p), 'utf8');
 const dirsIn = (p) =>
-  readdirSync(join(rootOf(), p), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
+  readdirSync(resolvePath(p), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
 const filesIn = (p) =>
-  readdirSync(join(rootOf(), p), { withFileTypes: true }).filter((e) => e.isFile()).map((e) => e.name);
-const entriesIn = (p) => readdirSync(join(rootOf(), p), { withFileTypes: true }).map((e) => e.name);
+  readdirSync(resolvePath(p), { withFileTypes: true }).filter((e) => e.isFile()).map((e) => e.name);
+const entriesIn = (p) => readdirSync(resolvePath(p), { withFileTypes: true }).map((e) => e.name);
 const parseJson = (p) => JSON.parse(read(p));
 
 function sorted(items) {

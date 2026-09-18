@@ -73,6 +73,13 @@ const BACKUP_FILES = [
   'README.md',
   '.github/workflows/sync-upstream.yml',
   'scripts/sync-upstream.mjs',
+  'scripts/generate-public-product-facts.mjs',
+  'scripts/build-agent-skills-index.mjs',
+  'scripts/generate-inventory-facts.mjs',
+  'scripts/docs-stats.mjs',
+  'scripts/build-sitemap.mjs',
+  'scripts/vercel-ignore.sh',
+  'tsconfig.api.json',
   'vercel.json',
 ];
 
@@ -110,6 +117,18 @@ try {
   if (fs.existsSync(mergeHead)) {
     run('git commit -m "chore(upstream): sync latest updates with EarthSphere Edition protections"');
   }
+}
+
+// Ensure api/ is migrated into _api/ and removed so Vercel Hobby limits are never triggered
+const apiDir = path.join(ROOT, 'api');
+const underApiDir = path.join(ROOT, '_api');
+if (fs.existsSync(apiDir)) {
+  console.log('Migrating upstream api/ changes into _api/ ...');
+  fs.cpSync(apiDir, underApiDir, { recursive: true, force: true });
+  fs.rmSync(apiDir, { recursive: true, force: true });
+  run('git add _api', { silent: true });
+  run('git rm -rf --cached api', { allowFailure: true, silent: true });
+  run('git commit --amend --no-edit', { allowFailure: true, silent: true });
 }
 
 // 6. Test build integrity

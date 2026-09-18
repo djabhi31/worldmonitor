@@ -25,7 +25,7 @@ import { UNDERSEA_CABLES } from '../src/config/geo-map.ts';
 import { getCompleteLayerCatalogKeys } from '../src/config/map-layer-definitions.ts';
 import { INTEL_HOTSPOTS } from '../shared/geo-data.ts';
 import { PIPELINES } from '../shared/pipelines-data.ts';
-import { TOOL_REGISTRY, toolAccess } from '../api/mcp/registry/index.ts';
+import { TOOL_REGISTRY, toolAccess } from '../_api/mcp/registry/index.ts';
 import { publishedRankedCountries } from './build-ai-search.mjs';
 import { commandPaletteCommandCount } from './lib/command-palette-count.mjs';
 import { lngFacilityCount } from './_storage-facility-registry.mjs';
@@ -244,7 +244,7 @@ export const PUBLIC_TIER_GROUPS = ${JSON.stringify(publicTierGroups, null, 2)};
 
 export const FALLBACK_PRICES = ${JSON.stringify(fallbackPrices, null, 2)};
 `;
-emit('api/_product-catalog.generated.js', edgeModule);
+emit('_api/_product-catalog.generated.js', edgeModule);
 
 function offerFor(plan) {
   const offer = {

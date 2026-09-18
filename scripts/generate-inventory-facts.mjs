@@ -91,7 +91,7 @@ function expectedInventoryOutputs({ loadStats = loadStatsForInventoryFacts } = {
   return new Map([
     ['public/product-facts.json', json(publicFacts)],
     ['scripts/shared/inventory-facts.generated.json', json(inventoryFacts)],
-    ['api/_inventory-facts.generated.js', edgeModule],
+    ['_api/_inventory-facts.generated.js', edgeModule],
     ['docs/generated/stats.json', json(stats)],
   ]);
 }
