@@ -23,6 +23,7 @@ public/crawlable-corpus.json
 # lifecycle, pricing, and catalog artifacts remain committed.
 public/product-facts.json
 api/_inventory-facts.generated.js
+_api/_inventory-facts.generated.js
 scripts/shared/inventory-facts.generated.json
 docs/generated/stats.json
 docs/generated/entitlement-crosswalk.json
@@ -50,6 +51,8 @@ secrets/
 .vercel
 api/\[domain\]/v1/\[rpc\].js
 api/\[\[...path\]\].js
+_api/\[domain\]/v1/\[rpc\].js
+_api/\[\[...path\]\].js
 .claude/
 .cursor/
 CLAUDE.md

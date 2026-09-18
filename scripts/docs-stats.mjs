@@ -16,7 +16,7 @@
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, isAbsolute, relative } from 'node:path';
 import { buildSourceAttributionStats } from './source-attribution.mjs';
 import { extractAssignedObjectBlock } from './lib/js-source-structure.mjs';
 
@@ -25,10 +25,22 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // copy (see withStatsRoot below) so a sibling test scanning the REAL repo
 // can never observe the probe. null means the real ROOT.
 let rootOverride = null;
+const rootOf = () => rootOverride ?? ROOT;
 const resolvePath = (p) => {
-  const primary = join(rootOf(), p);
-  if (p === 'api' || p.startsWith('api/') || p.startsWith('api\\')) {
-    const alternate = join(rootOf(), p.replace(/^api(\/|\\|$)/, '_api$1'));
+  let rel = p;
+  const root = rootOf();
+  if (isAbsolute(p)) {
+    if (p.startsWith(root)) {
+      rel = relative(root, p).replace(/\\/g, '/');
+    }
+  } else {
+    rel = p.replace(/\\/g, '/');
+  }
+
+  const primary = isAbsolute(p) ? p : join(root, p);
+  if (rel === 'api' || rel.startsWith('api/')) {
+    const alternateRel = rel.replace(/^api(\/|$)/, '_api$1');
+    const alternate = join(root, alternateRel);
     if (!statSync(primary, { throwIfNoEntry: false }) && statSync(alternate, { throwIfNoEntry: false })) {
       return alternate;
     }
@@ -978,7 +990,7 @@ export async function withStatsRoot(fn) {
 // endpoints. Git cannot track empty trees, so a readdir count that includes
 // them writes a stats.json CI cannot reproduce.
 function dirHasFiles(rel) {
-  for (const e of readdirPresentSync(join(rootOf(), rel))) {
+  for (const e of readdirPresentSync(resolvePath(rel))) {
     if (e.name.startsWith('.')) continue;
     const child = `${rel}/${e.name}`;
     if (e.isFile()) return true;
@@ -1020,7 +1032,7 @@ function computeStats({ sourceAttribution: suppliedAttribution } = {}) {
   // ---- Root app directories used by AGENTS.md and CONTRIBUTING.md ----
   const componentTopLevelTsFiles = filesIn('src/components').filter((f) => f.endsWith('.ts')).length;
   const serviceTopLevelEntries = entriesIn('src/services').length;
-  const apiEndpointEntries = readdirSync(join(rootOf(), 'api'), { withFileTypes: true }).filter((e) => {
+  const apiEndpointEntries = readdirSync(resolvePath('api'), { withFileTypes: true }).filter((e) => {
     const f = e.name;
     if (f.startsWith('_') || f.startsWith('.')) return false;
     if (/\.test\./.test(f) || /\.d\.ts$/.test(f) || /\.json$/.test(f)) return false;

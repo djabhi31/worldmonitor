@@ -7,175 +7,175 @@
       "type": "skill-md",
       "description": "Model oil or gas supply shock exposure for a country and chokepoint. Use when the user asks how an energy disruption could affect fuel supply, strategic cover, or product deficits.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/assess-energy-shock/SKILL.md",
-      "digest": "sha256:b4c52a653498249e38df6c5ffae0d365e778f3226d6ead7a914761a98388c1d4"
+      "digest": "sha256:c4e6bd2dec355ae95a4e96e2716dd3e3b1ff1ffe9f16b5fc6603497559da7e58"
     },
     {
       "name": "check-airport-delays",
       "type": "skill-md",
       "description": "Retrieve current airport delay and cancellation alerts worldwide — delay type, severity, average delay minutes, and affected-flight percentages per airport. Use when the user asks whether an airport is delayed, disrupted, or experiencing cancellations.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/check-airport-delays/SKILL.md",
-      "digest": "sha256:04057959beb677e917a5c3f72ff1cf316b25a76d635533685a82e154d2f8fbc9"
+      "digest": "sha256:6bb8bf124ad25fd45e52fb129ee17e19bcdb9d482df85f10904061f9378a2336"
     },
     {
       "name": "check-chokepoint-status",
       "type": "skill-md",
       "description": "Retrieve live disruption status for the 13 monitored maritime chokepoints (Suez, Hormuz, Malacca, Bab el-Mandeb, Panama, and more). Use when the user asks whether a strait or canal is disrupted, congested, or safe for shipping right now.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/check-chokepoint-status/SKILL.md",
-      "digest": "sha256:df2ba34c4463fc4c69c44eed71ca339a5a13b6fbf3e50a5b62669cbf9410abb7"
+      "digest": "sha256:33836bbaec83a338eb1166357cc88c93c4b14e930334e0a786df22bf9c5d52e1"
     },
     {
       "name": "check-country-risk",
       "type": "skill-md",
       "description": "Retrieve composite country risk intelligence — Country Instability Index (CII), travel advisory level, and active sanctions exposure — for one country by ISO code. Use when the user asks how risky or unstable a country is right now.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/check-country-risk/SKILL.md",
-      "digest": "sha256:81973d76a4943fab52ced53b48dfab704e8ba1a53401a85b300d6d1f7280ed7f"
+      "digest": "sha256:1b732ebe74512dc926aee1ba88ae6ad802a12eba2de562ff0cc8d2417f4e750f"
     },
     {
       "name": "check-forecast-signals",
       "type": "skill-md",
       "description": "Retrieve probabilistic forecasts and their scorecard context. Use when the user asks what World Monitor is forecasting, how probabilities shifted, or how calibrated the forecasts are.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/check-forecast-signals/SKILL.md",
-      "digest": "sha256:7b733d2cbb0929d1f660ff2de3c2eeec01c336d669961c2726860605ed0cab0c"
+      "digest": "sha256:3aba83446c4efae92e35962aedf8650cebfabd64920fbb1f33b5bf3e5e0cf697"
     },
     {
       "name": "check-sanctions-pressure",
       "type": "skill-md",
       "description": "Retrieve normalized OFAC sanctions pressure — designation summaries, recent additions, and per-country/per-program aggregates including sanctioned vessels and aircraft. Use when the user asks which countries or programs face sanctions pressure, or what was recently designated.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/check-sanctions-pressure/SKILL.md",
-      "digest": "sha256:1794b12335095bd66b311502a3c9c5b8e1a104cf6845fab9dcee1b26e8b0435e"
+      "digest": "sha256:7275415cd49ca384ee9c7b9345a4716423997b2b869029bf290e3a561ef009aa"
     },
     {
       "name": "fetch-country-brief",
       "type": "skill-md",
       "description": "Retrieve the current AI-generated strategic intelligence brief for a country, keyed by ISO 3166-1 alpha-2 code. Use when the user asks for a summary of the current geopolitical, economic, or security situation in a specific country.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/fetch-country-brief/SKILL.md",
-      "digest": "sha256:da0911e598596a393f956f84d2903f340565ae9d3b14411d1812fadd1aa2bf4c"
+      "digest": "sha256:3f715d9d16635bc12a95f10ec98565c8ef811c93fdf7ae5a72e4e149c39e157c"
     },
     {
       "name": "fetch-news-digest",
       "type": "skill-md",
       "description": "Retrieve the pre-aggregated digest of World Monitor's curated news feeds, bucketed by category, with per-article threat classification and alert flags. Use when the user asks what's in the news right now, wants headlines by topic, or needs a current-events sweep.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/fetch-news-digest/SKILL.md",
-      "digest": "sha256:fcc131f04ea4ff35c4a80ebefb1a2e76db812c4760e427dbadd003050806365d"
+      "digest": "sha256:d103a0fe22e1d7d23bc71ea64774247de5a9c586d59cc695725dad005df64872"
     },
     {
       "name": "fetch-resilience-score",
       "type": "skill-md",
       "description": "Retrieve the composite country resilience score (0-100) and its domain/pillar breakdown for a single country. Use when the user asks how resilient a country is, or wants its numeric resilience score, trend, or per-domain breakdown.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/fetch-resilience-score/SKILL.md",
-      "digest": "sha256:6dec69fa8566b683ba272331c71bdcc41cd8eb30a51470f9e129cb4a37c9354a"
+      "digest": "sha256:7daf2d10c5a7a1c0962d1c270d2f16295cd876fca0d794ea29a02f50d8997e71"
     },
     {
       "name": "get-market-quotes",
       "type": "skill-md",
       "description": "Retrieve real-time equity, index, and ETF quotes with price, change, and sparkline history. Use when the user asks for current market prices, how a ticker is doing, or a quick market snapshot.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/get-market-quotes/SKILL.md",
-      "digest": "sha256:60a4f48c154f11f9b47ab65f70337e38c0289b7bc5f9811c5a22018cc2468224"
+      "digest": "sha256:91db77004a78e7f4061fa90cddb714f2347a7850e7efc47d8a156a0268086e86"
     },
     {
       "name": "get-prediction-markets",
       "type": "skill-md",
       "description": "Retrieve active prediction-market contracts (Polymarket) with live yes-price probabilities, volume, and close dates, filterable by category or keyword. Use when the user asks what the market odds are on a geopolitical, economic, or election outcome.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/get-prediction-markets/SKILL.md",
-      "digest": "sha256:c81dd07c39300f85d0c19923c14470ae0ee1a7ea0375f7fbad525d829d626e9d"
+      "digest": "sha256:057cec04d343f41977790d6bc471d5fe0abd029e1dcb75c806b5297c29445592"
     },
     {
       "name": "monitor-energy-disruptions",
       "type": "skill-md",
       "description": "Retrieve the curated energy disruption event log for pipelines and storage facilities. Use when the user asks what energy assets are disrupted, sanctioned, offline, or under watch.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/monitor-energy-disruptions/SKILL.md",
-      "digest": "sha256:83373c633110d8103e6d8233decfad79361aa20677801db22cbe33d0fc7adfa5"
+      "digest": "sha256:8e459582522c01b3a19fd1b56614fddc68bd78412f636e711fad0cee6f3d2618"
     },
     {
       "name": "monitor-health-alerts",
       "type": "skill-md",
       "description": "Retrieve disease outbreak alerts and PM2.5 air-quality health warnings. Use when the user asks about current public-health risks in a country, city, or region.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/monitor-health-alerts/SKILL.md",
-      "digest": "sha256:3fa0d6293260ac960b8ebb6152222c96fb1e7fcadd616db3b515e573d01173c6"
+      "digest": "sha256:f11bde95c505e0a24ab1de0f5dd0c86b06b2afe977aabe1379ebd8576f531ab7"
     },
     {
       "name": "monitor-internet-outages",
       "type": "skill-md",
       "description": "Retrieve detected internet outages (Cloudflare Radar) with country, cause, severity, and time bounds. Use when the user asks whether a country's internet is down, throttled, or experiencing a shutdown.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/monitor-internet-outages/SKILL.md",
-      "digest": "sha256:35b895ce41c9441ba7bb33f728c14ccaebb743b8757bd01ca238e78f88298b3f"
+      "digest": "sha256:ab07babe6c1d30db10e7f48ed5af6958f43d10c79ee503fe7d44486574aaf9c4"
     },
     {
       "name": "monitor-supply-chain-stress",
       "type": "skill-md",
       "description": "Retrieve current shipping market stress from carrier and freight indicators. Use when the user asks whether supply chains or container shipping are under pressure right now.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/monitor-supply-chain-stress/SKILL.md",
-      "digest": "sha256:1f0b0388072a3153691508a15e6f247cddce1ed67c85c2690a0da397ee83027a"
+      "digest": "sha256:a9f0ed8e976c5af1aa673f58c4eaa44fdac7fd9d0fcdb0083b6b7282e400575a"
     },
     {
       "name": "monitor-webcams",
       "type": "skill-md",
       "description": "Discover live webcams in a map viewport and resolve thumbnails or player URLs. Use when the user asks for visual context near a location, route, border, port, or city.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/monitor-webcams/SKILL.md",
-      "digest": "sha256:a970e08d624423d6a6177c66a7db9e9f52662ed953bc58e629bc4a585228436e"
+      "digest": "sha256:173222b6dc4a2c1b753d9006bca1d043530662175d774b4195f1d3520c324fc5"
     },
     {
       "name": "scan-cyber-threats",
       "type": "skill-md",
       "description": "Retrieve active cyber-threat intelligence — malware IOCs, C2 infrastructure, and CISA known-exploited vulnerabilities — filterable by type, source, and severity. Use when the user asks about current cyber threats, IOCs, or actively exploited CVEs.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/scan-cyber-threats/SKILL.md",
-      "digest": "sha256:f36c895af90cff33b62668c98488934ff05849f09fd65298687bc95e015f4be1"
+      "digest": "sha256:ff97ab6d3b2b23334eee1a8346a07db22794d7a4a4dca0eca4ce919c9bd39770"
     },
     {
       "name": "trace-trade-flows",
       "type": "skill-md",
       "description": "Retrieve strategic UN Comtrade commodity flows with anomaly flags. Use when the user asks who trades a critical commodity, which flows changed sharply, or how trade exposure is shifting.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/trace-trade-flows/SKILL.md",
-      "digest": "sha256:1ea4fc5a255f9952b5970e64223050cbf30eb2c5842f6a586cd052a08e6ed1d1"
+      "digest": "sha256:6fc69332c04971add62133292d1d18b5a0f17ae65eaaa59f950d84584e443f1d"
     },
     {
       "name": "track-climate-hazards",
       "type": "skill-md",
       "description": "Retrieve climate-relevant disaster events, anomalies, and climate news. Use when the user asks about floods, cyclones, droughts, heatwaves, wildfires, or climate disruption.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/track-climate-hazards/SKILL.md",
-      "digest": "sha256:f1eeb11938c9b0d23b7b44b8d8575f85c7d7fb67854da4e016233530ac1c767a"
+      "digest": "sha256:a124a8e38e85442cb7501f804fc22bfd2a6cb3990a4d0e7c7a61b438c4809dac"
     },
     {
       "name": "track-conflict-events",
       "type": "skill-md",
       "description": "Retrieve geolocated armed-conflict events (UCDP) with parties, fatality estimates, and violence type, filterable by country and date range. Use when the user asks about recent fighting, attacks, or conflict activity in a country or region.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/track-conflict-events/SKILL.md",
-      "digest": "sha256:91c0413ea8893d1d7633520f1620a88b8238d5aeacfceb8579d73244274d52b5"
+      "digest": "sha256:a4bae380d08787503ae35f02396f64d864cf93361c8d5575a13a6c1787971ff0"
     },
     {
       "name": "track-earthquakes",
       "type": "skill-md",
       "description": "Retrieve recent earthquakes (USGS) with magnitude, depth, location, and a concern score that flags proximity to nuclear test sites. Use when the user asks about recent seismic activity or whether an earthquake was natural.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/track-earthquakes/SKILL.md",
-      "digest": "sha256:e78cfba132010088b93f0dcaef2b86b29df5af66d16482e3ea45f1c509a12f55"
+      "digest": "sha256:13fe23c9b7d99e372a872fc7ec70a533cb0c01ddb7aed7d7dce2714ccf2a8b43"
     },
     {
       "name": "track-military-flights",
       "type": "skill-md",
       "description": "Retrieve tracked military aircraft positions (OpenSky + Wingbits) with callsign, type, operator, altitude, and activity clusters, filterable by bounding box, operator, and aircraft type. Use when the user asks about military air activity in a region.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/track-military-flights/SKILL.md",
-      "digest": "sha256:0d90defe0041219759ba53cb1b50e6b011ab63257bc4409b6975ad5862c8e82f"
+      "digest": "sha256:ca248ee5b620b7d4b8b4add4b6063bebdf14231079e39e0d6598f8357e326e1b"
     },
     {
       "name": "track-tariff-trends",
       "type": "skill-md",
       "description": "Retrieve MFN applied tariff-rate timeseries for a reporting country — applied vs bound rates by year, plus the optional US effective tariff rate. Use when the user asks how a country's MFN tariffs have changed over time.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/track-tariff-trends/SKILL.md",
-      "digest": "sha256:e13d1ac27da2a628fcb56efe975998d0e50ec0b154c8a1df7e90306566eb0d47"
+      "digest": "sha256:5a57124fffa439ddccadb480eeac0c8076241e82b5ff5e1a20184f407d3fb569"
     },
     {
       "name": "track-unrest-events",
       "type": "skill-md",
       "description": "Retrieve seeded protest, riot, strike, and civil unrest events. Use when the user asks whether social unrest is occurring in a country or over a recent time window.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/track-unrest-events/SKILL.md",
-      "digest": "sha256:552b4d132af40fc024c7131eb578f863008c68720473163716f0560add0c80e2"
+      "digest": "sha256:f299dc77538d8fd468bce27a72b0d6ef1589c97587fc80fcb0c0f6b26dd4e8a7"
     },
     {
       "name": "track-vessel-traffic",
       "type": "skill-md",
       "description": "Retrieve a point-in-time AIS vessel-traffic snapshot with disruption candidates and optional tanker overlay, filterable by bounding box. Use when the user asks what ships are in an area, or whether maritime traffic is disrupted.",
       "url": "https://worldmonitor.app/.well-known/agent-skills/track-vessel-traffic/SKILL.md",
-      "digest": "sha256:d8d847c2fe79cf613e27730de4ac706c285f769c666aaf47d52ffd91c85b9a2b"
+      "digest": "sha256:2c26d01fc3e0a026593ec57bb80cfaa91ea7cb5e388ca3fff40c113dec293f0d"
     }
   ]
 }
