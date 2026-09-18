@@ -1,8 +1,19 @@
 {
-  "buildCommand": "npm run build:full",
+  "buildCommand": "npm run build:full && node -e \"require('fs').rmSync('api', { recursive: true, force: true })\"",
   "ignoreCommand": "bash scripts/vercel-ignore.sh",
   "crons": [],
+  "rewrites": [
+    { "source": "/api/:match*", "destination": "https://www.worldmonitor.app/api/:match*" },
+    { "source": "/dashboard", "destination": "/dashboard.html" },
+    { "source": "/dashboard-tech", "destination": "/dashboard-tech.html" },
+    { "source": "/dashboard-finance", "destination": "/dashboard-finance.html" },
+    { "source": "/dashboard-energy", "destination": "/dashboard-energy.html" },
+    { "source": "/dashboard-commodity", "destination": "/dashboard-commodity.html" },
+    { "source": "/dashboard-happy", "destination": "/dashboard-happy.html" },
+    { "source": "/embed", "destination": "/embed.html" }
+  ],
   "redirects": [
+    { "source": "/", "has": [{ "type": "host", "value": "^.*earthsphere\\.in$" }], "destination": "/dashboard", "permanent": false },
     { "source": "/", "has": [{ "type": "host", "value": "^(?:tech|finance|commodity|happy|energy)\\.worldmonitor\\.app$" }], "missing": [{ "type": "query", "key": "mode", "value": "agent" }], "destination": "/dashboard", "permanent": true },
     { "source": "/", "has": [{ "type": "host", "value": "^[a-z0-9-]+\\.vercel\\.app$" }], "missing": [{ "type": "query", "key": "mode", "value": "agent" }], "destination": "/dashboard", "permanent": false },
     { "source": "/", "has": [{ "type": "host", "value": "^api\\.worldmonitor\\.app$" }], "destination": "https://www.worldmonitor.app/", "permanent": true },

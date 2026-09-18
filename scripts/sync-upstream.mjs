@@ -73,6 +73,7 @@ const BACKUP_FILES = [
   'README.md',
   '.github/workflows/sync-upstream.yml',
   'scripts/sync-upstream.mjs',
+  'vercel.json',
 ];
 
 const backups = new Map();
