@@ -1,8 +1,13 @@
-# World Monitor
+# World Monitor — EarthSphere Edition
+
+[![Live Custom Domain](https://img.shields.io/badge/Live_Deployment-worldmonitor.earthsphere.in-00d4aa?style=for-the-badge&logo=vercel&logoColor=white)](https://worldmonitor.earthsphere.in)
+[![EarthSphere Ecosystem](https://img.shields.io/badge/EarthSphere-Ecosystem_Live-00f6ff?style=for-the-badge&logo=nasa&logoColor=white)](https://earthsphere.in)
+[![Automated Lifetime Upstream Sync](https://img.shields.io/badge/Upstream_Sync-Daily_04:00_UTC-007ACC?style=flat-square&logo=githubactions&logoColor=white)](https://github.com/djabhi31/worldmonitor/actions)
+[![Upstream Source](https://img.shields.io/badge/Upstream-koala73%2Fworldmonitor-8A2BE2?style=flat-square&logo=github)](https://github.com/koala73/worldmonitor)
 
 [简体中文](README.zh-CN.md) | [日本語](README.ja-JP.md)
 
-**Real-time global intelligence dashboard** — AI-powered news aggregation, geopolitical monitoring, and infrastructure tracking in a unified situational awareness interface.
+**Real-time global intelligence dashboard** — AI-powered news aggregation, geopolitical monitoring, and infrastructure tracking in a unified situational awareness interface. Part of the **[EarthSphere](https://earthsphere.in)** planetary intelligence ecosystem.
 
 [![GitHub stars](https://img.shields.io/github/stars/koala73/worldmonitor?style=social)](https://github.com/koala73/worldmonitor/stargazers)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.gg/re63kWKxaz)
@@ -199,13 +204,32 @@ We thank the following researchers for responsibly disclosing security issues:
 
 See our [Security Policy](./SECURITY.md) for responsible disclosure guidelines.
 
+## 🌐 EarthSphere Planetary Intelligence Ecosystem
+
+World Monitor is integrated into the **[EarthSphere](https://earthsphere.in)** planetary intelligence platform maintained by **Abhilash Ghosh (@djabhi31)**:
+
+| Platform | Domain | Purpose | Architecture |
+|---|---|---|---|
+| 🌍 **EarthSphere Core** | [earthsphere.in](https://earthsphere.in) | NASA EONET natural disaster tracker, NEOs, Mars rovers & space weather | Next.js 16, Vercel Edge |
+| 🛰️ **God's Eye View** | [godseyeview.earthsphere.in](https://godseyeview.earthsphere.in) | Cinematic 3D spy globe, live flights, ships, satellites, voice HUD | CesiumJS, Azure App Service |
+| 🌐 **World Monitor** | [worldmonitor.earthsphere.in](https://worldmonitor.earthsphere.in) | Real-time global intelligence, OSINT news, conflict zones & subsea cables | Dual WebGL (globe.gl + deck.gl), Vercel |
+
+### 🔄 Lifetime Upstream Sync Engine
+
+This repository includes an automated upstream synchronization engine (`scripts/sync-upstream.mjs` and `.github/workflows/sync-upstream.yml`) that runs daily at **04:00 UTC (09:30 AM IST)**. It pulls the latest features, security patches, and feed updates directly from `@koala73/worldmonitor:main` while keeping EarthSphere custom branding, DNS routing, and deployment configurations 100% intact.
+
+To run sync manually at any time:
+```bash
+node scripts/sync-upstream.mjs
+```
+
 ---
 
 <p align="center">
-  <a href="https://www.worldmonitor.app">worldmonitor.app</a> &nbsp;·&nbsp;
-  <a href="https://www.worldmonitor.app/docs/documentation">docs.worldmonitor.app</a> &nbsp;·&nbsp;
-  <a href="https://finance.worldmonitor.app">finance.worldmonitor.app</a> &nbsp;·&nbsp;
-  <a href="https://commodity.worldmonitor.app">commodity.worldmonitor.app</a>
+  <a href="https://worldmonitor.earthsphere.in">worldmonitor.earthsphere.in</a> &nbsp;·&nbsp;
+  <a href="https://earthsphere.in">earthsphere.in</a> &nbsp;·&nbsp;
+  <a href="https://godseyeview.earthsphere.in">godseyeview.earthsphere.in</a> &nbsp;·&nbsp;
+  <a href="https://www.worldmonitor.app">worldmonitor.app</a>
 </p>
 
 ## Star History
@@ -216,3 +240,4 @@ See our [Security Policy](./SECURITY.md) for responsible disclosure guidelines.
    <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=koala73/worldmonitor&type=Date" />
  </picture>
 </a>
+
