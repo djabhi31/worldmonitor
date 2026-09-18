@@ -24,3 +24,6 @@ target/
 # node:test suite (production env + Sentry) on every request (WORLDMONITOR-VD).
 # Guarded by tests/deploy-config.test.mjs.
 api/**/*.test.mjs
+
+# Disable Edge Middleware for static Vite SPA
+middleware.ts

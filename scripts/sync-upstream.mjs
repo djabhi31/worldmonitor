@@ -83,6 +83,7 @@ const BACKUP_FILES = [
   'scripts/link-api.mjs',
   'scripts/unlink-api.mjs',
   'package.json',
+  '.vercelignore',
   'vercel.json',
 ];
 
@@ -131,6 +132,14 @@ if (fs.existsSync(apiDir)) {
   fs.rmSync(apiDir, { recursive: true, force: true });
   run('git add _api', { silent: true });
   run('git rm -rf --cached api', { allowFailure: true, silent: true });
+  run('git commit --amend --no-edit', { allowFailure: true, silent: true });
+}
+
+// Remove middleware.ts to prevent Vercel Edge Middleware failures
+const middlewarePath = path.join(ROOT, 'middleware.ts');
+if (fs.existsSync(middlewarePath)) {
+  fs.rmSync(middlewarePath, { force: true });
+  run('git rm -f middleware.ts', { allowFailure: true, silent: true });
   run('git commit --amend --no-edit', { allowFailure: true, silent: true });
 }
 
