@@ -131,13 +131,13 @@ if (fs.existsSync(apiDir)) {
   run('git commit --amend --no-edit', { allowFailure: true, silent: true });
 }
 
-// 6. Test build integrity
-console.log('\n[5/5] Verifying build integrity...');
-if (!fs.existsSync(path.join(ROOT, 'node_modules'))) {
-  console.log('Installing dependencies...');
-  run('npm install');
+// 6. Test build integrity (only if node_modules already exists or in CI)
+if (process.env.CI || fs.existsSync(path.join(ROOT, 'node_modules'))) {
+  console.log('\n[5/5] Verifying build integrity...');
+  run('npm run build');
+} else {
+  console.log('\n[5/5] Skipping local build verification (node_modules not installed locally). CI/Vercel handles production build.');
 }
-run('npm run build');
 
 console.log('\n===========================================================');
 console.log('🎉 LIFETIME SYNC SUCCESSFUL!');
