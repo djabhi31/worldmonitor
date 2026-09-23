@@ -1127,12 +1127,15 @@ export class PanelLayoutManager implements AppModule {
               <span class="variant-label">Good News</span>
             </a>`;
       })()}</div>
-          <span class="logo">MONITOR</span><span class="logo-mobile">World Monitor</span><span class="version">v${__APP_VERSION__}</span>${BETA_MODE ? '<span class="beta-badge">BETA</span>' : ''}
-          <a href="https://x.com/eliehabib" target="_blank" rel="noopener" class="credit-link">
-            <svg class="x-logo" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-            <span class="credit-text">@eliehabib</span>
+          <a href="https://earthsphere.in" target="_blank" rel="noopener" class="earthsphere-brand-badge" title="EarthSphere Planetary Intelligence Ecosystem">
+            <span class="earthsphere-pulse-dot"></span>
+            <span class="earthsphere-badge-text">EARTHSPHERE</span>
           </a>
-          <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener" class="github-link" title="${t('header.viewOnGitHub')}" aria-label="${t('header.viewOnGitHub')}">
+          <span class="logo">MONITOR</span><span class="logo-mobile">EarthSphere Monitor</span><span class="version">v${__APP_VERSION__}</span>${BETA_MODE ? '<span class="beta-badge">BETA</span>' : ''}
+          <a href="https://earthsphere.in" target="_blank" rel="noopener" class="credit-link" title="Developed by Abhilash Ghosh">
+            <span class="credit-text">by Abhilash Ghosh</span>
+          </a>
+          <a href="https://github.com/djabhi31/worldmonitor" target="_blank" rel="noopener" class="github-link" title="${t('header.viewOnGitHub')}" aria-label="${t('header.viewOnGitHub')}">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
           </a>
           <button class="mobile-settings-btn" id="mobileSettingsBtn" title="${t('header.settings')}" aria-label="${t('header.settings')}">
@@ -1160,6 +1163,16 @@ export class PanelLayoutManager implements AppModule {
           </button>
         </div>
         <div class="header-right">
+          <div class="earthsphere-nav-pills" role="navigation" aria-label="EarthSphere Planetary Ecosystem">
+            <a href="https://earthsphere.in" target="_blank" rel="noopener" class="earthsphere-nav-pill" title="EarthSphere Hub — Planetary Intelligence">
+              <span class="earthsphere-pill-dot earthsphere-pill-dot--hub"></span>
+              <span class="earthsphere-pill-label">EarthSphere Hub</span>
+            </a>
+            <a href="https://godseyeview.earthsphere.in" target="_blank" rel="noopener" class="earthsphere-nav-pill" title="God's Eye View — 3D Planetary Cockpit">
+              <span class="earthsphere-pill-dot earthsphere-pill-dot--cockpit"></span>
+              <span class="earthsphere-pill-label">God's Eye View</span>
+            </a>
+          </div>
           <button class="search-btn" id="searchBtn"><kbd>⌘K</kbd> ${t('header.search')}</button>
           ${this.ctx.isDesktopApp ? '' : `<button class="copy-link-btn" id="copyLinkBtn">${t('header.copyLink')}</button>`}
           ${this.ctx.isDesktopApp ? '' : `<button class="copy-link-btn embed-link-btn" id="embedLinkBtn">${t('header.embed')}</button>`}
@@ -1172,7 +1185,7 @@ export class PanelLayoutManager implements AppModule {
       <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
       <nav class="mobile-menu" id="mobileMenu" aria-label="Menu">
         <div class="mobile-menu-header">
-          <span class="mobile-menu-title">WORLD MONITOR</span>
+          <span class="mobile-menu-title">EARTHSPHERE · WORLD MONITOR</span>
           <button class="mobile-menu-close" id="mobileMenuClose" aria-label="Close menu">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
@@ -1202,6 +1215,18 @@ export class PanelLayoutManager implements AppModule {
         ).join('');
       })()}
         <div class="mobile-menu-divider"></div>
+        <div class="mobile-menu-section-header" style="padding: 6px 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim, #71717a); font-weight: 700;">EarthSphere Ecosystem</div>
+        <a class="mobile-menu-item" href="https://earthsphere.in" target="_blank" rel="noopener">
+          <span class="mobile-menu-item-icon">🌍</span>
+          <span class="mobile-menu-item-label">EarthSphere Hub</span>
+          <span class="mobile-menu-chevron">↗</span>
+        </a>
+        <a class="mobile-menu-item" href="https://godseyeview.earthsphere.in" target="_blank" rel="noopener">
+          <span class="mobile-menu-item-icon">🛰️</span>
+          <span class="mobile-menu-item-label">God's Eye View (3D)</span>
+          <span class="mobile-menu-chevron">↗</span>
+        </a>
+        <div class="mobile-menu-divider"></div>
         <button class="mobile-menu-item" id="mobileMenuRegion">
           <span class="mobile-menu-item-icon">🌐</span>
           <span class="mobile-menu-item-label">${t('components.deckgl.views.global')}</span>
@@ -1221,9 +1246,13 @@ export class PanelLayoutManager implements AppModule {
           <span class="mobile-menu-item-icon">${getCurrentTheme() === 'dark' ? '☀️' : '🌙'}</span>
           <span class="mobile-menu-item-label">${getCurrentTheme() === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
         </button>
-        <a class="mobile-menu-item" href="https://x.com/eliehabib" target="_blank" rel="noopener">
-          <span class="mobile-menu-item-icon"><svg class="x-logo" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></span>
-          <span class="mobile-menu-item-label">@eliehabib</span>
+        <a class="mobile-menu-item" href="https://earthsphere.in" target="_blank" rel="noopener">
+          <span class="mobile-menu-item-icon">🌐</span>
+          <span class="mobile-menu-item-label">EarthSphere by Abhilash Ghosh</span>
+        </a>
+        <a class="mobile-menu-item" href="https://github.com/djabhi31/worldmonitor" target="_blank" rel="noopener">
+          <span class="mobile-menu-item-icon"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></span>
+          <span class="mobile-menu-item-label">GitHub Repository</span>
         </a>
         <div class="mobile-menu-divider"></div>
         <div class="mobile-menu-footer-links">

@@ -85,6 +85,8 @@ const BACKUP_FILES = [
   'package.json',
   '.vercelignore',
   'vercel.json',
+  'src/config/variant-meta.ts',
+  'index.html',
 ];
 
 const backups = new Map();

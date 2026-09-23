@@ -701,6 +701,114 @@ canvas,
   vertical-align: middle;
 }
 
+/* EarthSphere Planetary Intelligence Ecosystem Branding */
+.earthsphere-brand-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(0, 240, 255, 0.08);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  text-decoration: none;
+  transition: all 0.25s ease;
+  margin-right: 4px;
+}
+
+.earthsphere-brand-badge:hover {
+  background: rgba(0, 240, 255, 0.16);
+  border-color: rgba(0, 240, 255, 0.7);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.35);
+}
+
+.earthsphere-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #00f0ff;
+  box-shadow: 0 0 8px #00f0ff;
+  display: inline-block;
+  animation: earthsphere-pulse 2s infinite ease-in-out;
+}
+
+@keyframes earthsphere-pulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(0, 240, 255, 0.7);
+  }
+  70% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 6px rgba(0, 240, 255, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(0, 240, 255, 0);
+  }
+}
+
+.earthsphere-badge-text {
+  font-size: calc(11px * var(--wm-panel-effective-scale, 1));
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  background: linear-gradient(135deg, #00f0ff 0%, #38bdf8 50%, #818cf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.earthsphere-nav-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 6px;
+}
+
+.earthsphere-nav-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary, #ccc);
+  font-size: calc(11px * var(--wm-panel-effective-scale, 1));
+  font-weight: 600;
+  text-decoration: none;
+  letter-spacing: 0.2px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.earthsphere-nav-pill:hover {
+  background: rgba(0, 240, 255, 0.1);
+  border-color: rgba(0, 240, 255, 0.45);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+}
+
+.earthsphere-pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.earthsphere-pill-dot--hub {
+  background: #00f0ff;
+  box-shadow: 0 0 6px rgba(0, 240, 255, 0.8);
+}
+
+.earthsphere-pill-dot--cockpit {
+  background: #a855f7;
+  box-shadow: 0 0 6px rgba(168, 85, 247, 0.8);
+}
+
+@media (max-width: 1024px) {
+  .earthsphere-nav-pills {
+    display: none !important;
+  }
+}
+
 /* Update toast notification */
 .update-toast {
   position: fixed;

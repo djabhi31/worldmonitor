@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { VARIANT_META } from '../src/config/variant-meta';
+import { VARIANT_META } from '../src/config/variant-meta.ts';
 
 const indexHtml = readFileSync(fileURLToPath(new URL('../index.html', import.meta.url)), 'utf8');
 const full = VARIANT_META.full;
