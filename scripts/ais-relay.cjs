@@ -98,6 +98,15 @@ const { detectTrafficAnomaly } = require('../shared/chokepoint-traffic-anomaly.j
 const { CHOKEPOINT_THREAT_LEVELS } = require('../shared/chokepoint-threat-levels.js');
 const { classifyVesselType } = require('../shared/ais-vessel-type.js');
 const { CORRIDOR_RISK_NAME_MAP, deriveCorridorRiskLevel } = require('../shared/corridor-risk.js');
+// AIS upstream reconnect policy: failure classification (transport | auth |
+// rate-limit), the throttle ceiling escalation, and the silence verdict. Pure and
+// environment-free so tests/ais-watchdog.test.mjs exercises the whole policy
+// offline (see that module's header for why this lives outside the relay).
+const {
+  aisSilenceVerdict,
+  classifyAisFailure,
+  createAisReconnectPolicy,
+} = require('../shared/ais-watchdog.js');
 const chinaCountryStockIndexHelpersPromise = import('./_country-stock-index.mjs');
 // Terminal handler attached AT DECLARATION. This promise is created at module
 // load but not awaited until seedWeatherAlerts() runs, so without a .catch()
@@ -119,6 +128,7 @@ function requireShared(name) {
   throw new Error(`Cannot find shared/${name}`);
 }
 const RSS_ALLOWED_DOMAINS = new Set(requireShared('rss-allowed-domains.cjs'));
+const { COMPARE_AND_DELETE_SCRIPT } = requireShared('compare-and-delete-script.cjs');
 
 // Log effective heap limit at startup (verifies NODE_OPTIONS=--max-old-space-size is active)
 const _heapStats = v8.getHeapStatistics();
@@ -155,6 +165,31 @@ function safeInt(envVal, fallback, min) {
   if (envVal == null || envVal === '') return fallback;
   const n = Number(envVal);
   return Number.isFinite(n) ? Math.max(min, Math.floor(n)) : fallback;
+}
+
+// Durations are compared on a MONOTONIC clock. A wall-clock step (NTP correction,
+// suspend/resume) can move Date.now() backwards, which makes a
+// `Date.now() - lastPositionAt` delta negative and suppresses staleness detection
+// for an unbounded time — the one failure that hides itself. Wall time is still
+// recorded, but only ever to show an operator an age or a timestamp.
+const monoNow = () => performance.now();
+
+// Retry-After is either delta-seconds or an HTTP-date. Only those two documented
+// forms are accepted and the result is capped at a day: a malformed or hostile
+// header must not be able to park the feed for an arbitrary time, so anything
+// unparseable returns null and the ladder decides instead.
+function parseRetryAfterHeaderMs(raw) {
+  if (raw == null) return null;
+  const text = String(raw).trim();
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  if (/^\d+$/.test(text)) {
+    const seconds = Number(text);
+    return seconds > 0 ? Math.min(seconds * 1000, DAY_MS) : null;
+  }
+  const at = Date.parse(text);
+  if (!Number.isFinite(at)) return null;
+  const deltaMs = at - Date.now();
+  return deltaMs > 0 ? Math.min(deltaMs, DAY_MS) : null;
 }
 const MAX_VESSELS = safeInt(process.env.AIS_MAX_VESSELS, 20000, 1000);
 const MAX_VESSEL_HISTORY = safeInt(process.env.AIS_MAX_VESSEL_HISTORY, 20000, 1000);
@@ -697,8 +732,7 @@ function upstashReleaseLockIfOwner(key, owner) {
   return new Promise((resolve) => {
     if (!UPSTASH_ENABLED) return resolve(false);
     const url = new URL('/', UPSTASH_REDIS_REST_URL);
-    const script = 'if redis.call("get",KEYS[1]) == ARGV[1] then return redis.call("del",KEYS[1]) else return 0 end';
-    const body = JSON.stringify(['EVAL', script, '1', key, owner]);
+    const body = JSON.stringify(['EVAL', COMPARE_AND_DELETE_SCRIPT, '1', key, owner]);
     const req = UPSTASH_HTTP_MODULE.request(url, {
       method: 'POST',
       headers: {
@@ -863,10 +897,17 @@ async function publishNotificationEvent({ eventType, payload, severity, variant,
 
 let upstreamSocket = null;
 let upstreamReconnectTimer = null;
-let upstreamReconnectFailures = 0;
-let upstreamConsecutiveThrottles = 0;
 let upstreamReconnectAt = 0;
 let upstreamLastPositionAt = 0;
+// Monotonic mirrors. Every freshness DECISION reads these; the wall values above
+// exist only so an operator can be told an age or a timestamp.
+let upstreamLastPositionMono = 0;
+let upstreamSocketOpenedMono = 0;
+// The delay the reconnect policy computed for the failure that just occurred.
+// `scheduleUpstreamReconnect` consumes it, so the ladder ceiling and the throttle
+// escalation are decided once inside shared/ais-watchdog.js rather than re-derived
+// from counters here (the two drifting apart is how a stalled feed goes unnoticed).
+let upstreamPendingReconnectDelayMs = null;
 let relayShuttingDown = false;
 // Floors are deliberate: this change exists to stop the relay hammering a
 // provider that is rejecting it, so the tunables must not open a config path to
@@ -904,6 +945,39 @@ const AIS_POSITION_FRESHNESS_MS = safeInt(
   5 * 60 * 1000,
   1_000,
 );
+// Silence is REPORTED well before the connection is recycled. The provider allows
+// one stream per key, so aborting on the first whiff of staleness would churn the
+// only connection we are permitted to hold; telling the operator early costs
+// nothing. Stale-but-not-recycled is the `positionStale` health field.
+const AIS_POSITION_STALE_MS = safeInt(
+  process.env.AIS_POSITION_STALE_MS,
+  Math.floor(AIS_POSITION_FRESHNESS_MS * 0.6),
+  100,
+);
+// A refused credential is not a transient failure. Ordinary retrying cannot fix a
+// revoked key, and the ladder would otherwise knock hundreds of times a day on a
+// provider that has already said no. The slow probe exists only to notice an
+// upstream-side mistake; valid data or a credential change clears the state.
+const AIS_AUTH_PROBE_MS = safeInt(
+  process.env.AIS_AUTH_PROBE_MS,
+  60 * 60 * 1000,
+  60_000,
+);
+
+// The reconnect policy owns: what a failure MEANS, how many consecutive throttles
+// have happened, whether the ceiling is escalated, and the auth terminal state.
+// The relay keeps owning the transport and the single retry timer.
+const aisReconnectPolicy = createAisReconnectPolicy({
+  // nextBackoffMs is 0-indexed (failures already elapsed); the policy is
+  // 1-indexed (failures INCLUDING this one), hence the -1. Jitter and the cap stay
+  // in nextBackoffMs so there is one ladder implementation, not two.
+  ladder: (attempts, ceilingMs) => nextBackoffMs(attempts - 1, AIS_RECONNECT_BASE_MS, ceilingMs),
+  maxMs: AIS_RECONNECT_MAX_MS,
+  throttleCeilingMs: AIS_THROTTLE_RECONNECT_MAX_MS,
+  escalateAfter: AIS_THROTTLE_ESCALATE_AFTER,
+  authProbeMs: AIS_AUTH_PROBE_MS,
+});
+
 const aisUpstreamMetrics = {
   connectionAttempts: 0,
   success: 0,
@@ -924,18 +998,32 @@ const requestRateBuckets = new Map(); // key: route:ip -> { count, resetAt }
 const logThrottleState = new Map(); // key: event key -> timestamp
 
 function isAisThrottleEscalated() {
-  return upstreamConsecutiveThrottles >= AIS_THROTTLE_ESCALATE_AFTER;
+  return aisReconnectPolicy.snapshot().escalated;
 }
 
+// Liveness is proven by DATA, never by the socket. `readyState === OPEN` only
+// means a handshake succeeded once; AISstream can complete the upgrade and then
+// send nothing at all — no frame, no error, no close — which is the stall this
+// whole watchdog exists to catch. So readiness is recomputed from the age of the
+// last ACCEPTED position, on a monotonic clock, and silence gets its own verdict
+// (report at `AIS_POSITION_STALE_MS`, recycle at `AIS_POSITION_FRESHNESS_MS`).
 function getAisPositionFreshness(nowMs = Date.now()) {
-  const positionAgeMs = upstreamLastPositionAt
-    ? Math.max(0, nowMs - upstreamLastPositionAt)
+  const positionAgeMonoMs = upstreamLastPositionMono
+    ? Math.max(0, monoNow() - upstreamLastPositionMono)
     : null;
   return {
     currentPositionReady: upstreamSocket?.readyState === WebSocket.OPEN
-      && positionAgeMs !== null
-      && positionAgeMs <= AIS_POSITION_FRESHNESS_MS,
-    positionAgeMs,
+      && positionAgeMonoMs !== null
+      && positionAgeMonoMs <= AIS_POSITION_FRESHNESS_MS,
+    // Wall age, for operators. The verdict below never uses it.
+    positionAgeMs: upstreamLastPositionAt
+      ? Math.max(0, nowMs - upstreamLastPositionAt)
+      : null,
+    positionStale: positionAgeMonoMs !== null && aisSilenceVerdict({
+      silentForMs: positionAgeMonoMs,
+      staleMs: AIS_POSITION_STALE_MS,
+      recycleAfterMs: AIS_POSITION_FRESHNESS_MS,
+    }) === 'stale',
   };
 }
 
@@ -2315,9 +2403,16 @@ function orefCurlFetch(proxyAuth, url, { toFile } = {}) {
   // but curl's fingerprint passes. curl is available on Railway (Linux) and macOS.
   // execFileSync avoids shell interpolation — safe with special chars in proxy credentials.
   const { execFileSync } = require('child_process');
-  const proxyUrl = `http://${proxyAuth}`;
+  // Build an optional proxy args block. When no proxy is configured
+  // (proxyAuth empty), OMIT the -x flag entirely — passing `-x http://`
+  // (empty host) makes curl fail with "Unsupported proxy syntax".
+  let proxyArgs = [];
+  if (proxyAuth && proxyAuth.trim()) {
+    const proxyUrl = proxyAuth.includes('://') ? proxyAuth : `http://${proxyAuth}`;
+    proxyArgs = ['-x', proxyUrl];
+  }
   const args = [
-    '-sS', '--compressed', '-x', proxyUrl, '--max-time', '15',
+    '-sS', '--compressed', ...proxyArgs, '--max-time', '15',
     '-H', 'Accept: application/json',
     '-H', 'Referer: https://www.oref.org.il/',
     '-H', 'X-Requested-With: XMLHttpRequest',
@@ -3261,7 +3356,7 @@ function fetchYahooChartDirect(symbol, query = '') {
     if (Date.now() < _yahooConnectProxyCooldownUntil) return null;
     const proxy = { ...parseProxyUrl(PROXY_URL), tls: true };
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}${query}`;
-    return ytFetchViaProxy(url, proxy).then((resp) => {
+    return fetchViaProxy(url, proxy).then((resp) => {
       if (!resp?.ok) {
         _yahooConnectProxyFailCount++;
         if (_yahooConnectProxyFailCount >= 5) {
@@ -3748,7 +3843,7 @@ async function _fetchCoinPaprikaTickerById(id) {
 
   if (!PROXY_URL) throw new Error(`CoinPaprika ${id} direct failed and no PROXY_URL configured`);
   const proxy = { ...parseProxyUrl(PROXY_URL), tls: true };
-  const resp = await ytFetchViaProxy(url, proxy);
+  const resp = await fetchViaProxy(url, proxy);
   if (!resp?.ok) throw new Error(`CoinPaprika ${id} proxy HTTP ${resp?.status || 'unavailable'}`);
   const data = JSON.parse(resp.body);
   if (!data || typeof data !== 'object' || !data.id) throw new Error(`CoinPaprika ${id} proxy returned invalid ticker`);
@@ -4687,6 +4782,15 @@ Key distinction: "critical" requires GEOPOLITICAL scope — events that destabil
 - "Man killed his estranged wife" → domestic crime → info
 - "How to Crack the SAM Database in Kali Linux" → tutorial → info
 
+Do not under-rate "high". The EVENT itself is high even when nobody is hurt and even when the headline reports a vote, an approval or an announcement:
+- a sanctions package or sanctions bill passed, signed or imposed
+- a major arms sale or weapons transfer approved between states
+- a military deployment or force movement ahead of an operation
+- an armed attack, raid or clash with deaths, including one that was repelled
+- many deaths in state custody or by state action
+- a natural disaster that floods, destroys or displaces on a regional scale
+Use medium for analysis of or reaction to such an event, not for the event itself.
+
 Input: numbered lines "index|Title"
 Output: [{"i":0,"l":"high","c":"conflict"}, ...]
 
@@ -4809,7 +4913,14 @@ const CLASSIFY_LLM_PROVIDERS = [
     name: 'openrouter',
     envKey: 'OPENROUTER_API_KEY',
     apiUrl: 'https://openrouter.ai/api/v1/chat/completions',
-    model: 'deepseek/deepseek-v4-flash',
+    // Classification only — NOT the shared Flash default. Against 413 blind-judged
+    // headlines v4-flash raised 51 false critical/high labels for 42 real ones; v4.1
+    // with the "Do not under-rate high" prompt block raised 15-21 for 41 (three runs).
+    // Both halves are load-bearing: v4.1 without the block misses 7 of 44 real alerts
+    // instead of 3, and the block on v4-flash still raises 56 false ones.
+    // Pinned to that evidence by tests/classify-alert-label-precision.test.mjs;
+    // re-measure with scripts/eval-classify-labels.mjs before changing either.
+    model: 'deepseek/deepseek-v4.1-flash',
     headers: (key) => ({ Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'https://worldmonitor.app', 'X-Title': 'World Monitor', 'User-Agent': CHROME_UA }),
     extraBody: { reasoning: { enabled: false }, provider: OPENROUTER_PROVIDER_ROUTING },
     timeout: 30000,
@@ -4905,6 +5016,16 @@ async function classifyFetchLlm(titles, maxTextChars = 200) {
   }
   return null;
 }
+
+// Jev shadow (scripts/lib/jev-classify-relay.cjs): observes the labels the LLM
+// chain already cached, and records disagreements. It decides nothing, and is
+// inert without TYPESAFE_API_KEY.
+const jevShadow = require('./lib/jev-classify-relay.cjs');
+const JEV_SHADOW_PUSH_SCRIPT = "redis.call('LPUSH', KEYS[1], ARGV[1]) redis.call('LTRIM', KEYS[1], 0, tonumber(ARGV[2]) - 1) redis.call('EXPIRE', KEYS[1], tonumber(ARGV[3])) return 1";
+const observeJevShadow = jevShadow.createShadowObserver({
+  fetchJevLabel: (title, maxTextChars) => jevShadow.fetchJevLabel(title, maxTextChars, { apiKey: jevShadow.jevApiKey() }),
+  record: (row) => upstashEval(JEV_SHADOW_PUSH_SCRIPT, [jevShadow.SHADOW_LOG_KEY], [JSON.stringify(row), jevShadow.SHADOW_LOG_MAX, jevShadow.SHADOW_LOG_TTL_S]),
+});
 
 let classifyInFlight = false;
 
@@ -5013,6 +5134,7 @@ async function seedClassifyForVariant(variant, seenTitles) {
 
   let classified = 0;
   let skipped = 0;
+  const shadow = { asked: 0, answered: 0, agreed: 0, alertFlips: 0 };
 
   for (let b = 0; b < misses.length; b += CLASSIFY_BATCH_SIZE) {
     const chunk = misses.slice(b, b + CLASSIFY_BATCH_SIZE);
@@ -5027,6 +5149,7 @@ async function seedClassifyForVariant(variant, seenTitles) {
     }
 
     const classifiedSet = new Set();
+    const labelled = [];
     for (const entry of llmResult) {
       const idx = entry?.i;
       if (typeof idx !== 'number' || idx < 0 || idx >= chunk.length) continue;
@@ -5037,6 +5160,7 @@ async function seedClassifyForVariant(variant, seenTitles) {
       classifiedSet.add(idx);
       await upstashSet(classifyCacheKey(chunk[idx]), { level, category, timestamp: Date.now() }, CLASSIFY_CACHE_TTL);
       classified++;
+      labelled.push({ title: chunk[idx], level });
       // Attribute newly classified title to country stats (global dedup via seenTitles)
       if (!seenTitles.has(chunk[idx])) {
         seenTitles.add(chunk[idx]);
@@ -5105,8 +5229,17 @@ async function seedClassifyForVariant(variant, seenTitles) {
         skipped++;
       }
     }
+
+    // Last, and read-only: every label above is already cached and published.
+    const observed = await observeJevShadow(variant, labelled).catch(() => null);
+    if (observed) {
+      for (const k of Object.keys(shadow)) shadow[k] += observed[k];
+    }
   }
 
+  if (shadow.asked > 0) {
+    console.log(`[Classify] Jev shadow ${variant}: asked ${shadow.asked}, answered ${shadow.answered}, agreed ${shadow.agreed}, alert flips ${shadow.alertFlips}`);
+  }
   return { total: titleArr.length, classified, skipped, byCountry };
 }
 
@@ -7120,7 +7253,7 @@ async function seedUsniFleet() {
     if (!fetched && PROXY_URL) {
       try {
         const proxy = { ...parseProxyUrl(PROXY_URL), tls: true };
-        const result = await ytFetchViaProxy(USNI_URL, proxy);
+        const result = await fetchViaProxy(USNI_URL, proxy);
         if (result?.ok) {
           wpData = JSON.parse(result.body);
           fetched = true;
@@ -8695,14 +8828,16 @@ function getRelayRollingMetrics() {
       enabled: !!API_KEY,
       connected: upstreamSocket?.readyState === WebSocket.OPEN,
       currentPositionReady: aisPositionFreshness.currentPositionReady,
+      positionStale: aisPositionFreshness.positionStale,
       positionAgeMs: aisPositionFreshness.positionAgeMs,
       positionFreshnessMs: AIS_POSITION_FRESHNESS_MS,
+      positionStaleMs: AIS_POSITION_STALE_MS,
       connectionAttemptsSinceBoot: aisUpstreamMetrics.connectionAttempts,
       successfulConnectionsSinceBoot: aisUpstreamMetrics.success,
       throttlesSinceBoot: aisUpstreamMetrics.throttle,
       terminalFailuresSinceBoot: aisUpstreamMetrics.terminalFailure,
-      reconnectFailures: upstreamReconnectFailures,
-      consecutiveThrottles: upstreamConsecutiveThrottles,
+      reconnectFailures: aisReconnectPolicy.snapshot().attempts,
+      consecutiveThrottles: aisReconnectPolicy.snapshot().consecutiveThrottles,
       throttleEscalated: isAisThrottleEscalated(),
       reconnectCooldownRemainingMs: Math.max(0, upstreamReconnectAt - nowMs),
       lastSuccessAt: aisUpstreamMetrics.lastSuccessAt
@@ -9085,7 +9220,7 @@ function updateVesselChokepoints(mmsi, lat, lon) {
   else vesselChokepoints.set(mmsi, next);
 }
 
-function processRawUpstreamMessage(raw) {
+function processRawUpstreamMessage(raw, onSubscriptionError) {
   messageCount++;
   if (messageCount % 5000 === 0) {
     const mem = process.memoryUsage();
@@ -9095,6 +9230,10 @@ function processRawUpstreamMessage(raw) {
   let acceptedType = null;
   try {
     const parsed = JSON.parse(raw);
+    if (typeof parsed?.error === 'string' && parsed.error.trim()) {
+      onSubscriptionError(parsed.error);
+      return null;
+    }
     if (parsed?.MessageType === 'PositionReport') {
       if (processPositionReportForSnapshot(parsed)) acceptedType = 'position';
     } else if (parsed?.MessageType === 'ShipStaticData') {
@@ -9566,8 +9705,12 @@ function getTankerReportsSnapshot(bbox) {
 function buildSnapshot() {
   const now = Date.now();
   const aisPositionFreshness = getAisPositionFreshness(now);
+  // `positionStale` is part of the cache key: a feed that goes silent without yet
+  // crossing the recycle budget must still flip the published status, otherwise
+  // the stale verdict would sit behind a cached healthy snapshot.
   if (lastSnapshot
       && lastSnapshot.status.currentPositionReady === aisPositionFreshness.currentPositionReady
+      && lastSnapshot.status.positionStale === aisPositionFreshness.positionStale
       && now - lastSnapshotAt < Math.floor(SNAPSHOT_INTERVAL_MS / 2)) {
     return lastSnapshot;
   }
@@ -9581,6 +9724,7 @@ function buildSnapshot() {
     status: {
       connected: upstreamSocket?.readyState === WebSocket.OPEN,
       currentPositionReady: aisPositionFreshness.currentPositionReady,
+      positionStale: aisPositionFreshness.positionStale,
       vessels: vessels.size,
       messages: messageCount,
       clients: clients.size,
@@ -11350,7 +11494,7 @@ function handleYahooChartRequest(req, res) {
     _proxied = true;
     if (!PROXY_URL) return _serveStaleOrError(502, 'Yahoo upstream failed, no proxy');
     const proxy = { ...parseProxyUrl(PROXY_URL), tls: true };
-    ytFetchViaProxy(yahooUrl, proxy).then((proxyResp) => {
+    fetchViaProxy(yahooUrl, proxy).then((proxyResp) => {
       if (!proxyResp?.ok) return _serveStaleOrError(proxyResp?.status || 502, 'Yahoo proxy failed');
       _serveYahooResult(proxyResp.body, 'relay-proxy');
     }).catch(() => _serveStaleOrError(502, 'Yahoo proxy error'));
@@ -11558,163 +11702,15 @@ function handleAviationStackRequest(req, res) {
   });
 }
 
-// ── YouTube Live Detection (residential proxy bypass) ──────────────
-const YOUTUBE_PROXY_URL = process.env.YOUTUBE_PROXY_URL || '';
-
-function ytFetchViaProxy(targetUrl, proxy) {
+// ── Proxy fetch helper ─────────────────────────────────────────────
+// Resolves { ok, status, body } and never rejects. Written for the retired YouTube live
+// detection; the relay's PROXY_URL callers (Yahoo chart, USNI and others) still use it.
+function fetchViaProxy(targetUrl, proxy) {
   const { proxyFetch } = require('./_proxy-utils.cjs');
   return proxyFetch(targetUrl, proxy, { headers: { 'User-Agent': CHROME_UA } })
     .then(r => ({ ok: r.ok, status: r.status, body: r.buffer.toString('utf8') }))
     .catch(() => ({ ok: false, status: 0, body: '' }));
 }
-
-function ytFetchDirect(targetUrl) {
-  return new Promise((resolve, reject) => {
-    const target = new URL(targetUrl);
-    const req = https.request({
-      hostname: target.hostname,
-      path: target.pathname + target.search,
-      method: 'GET',
-      headers: { 'User-Agent': CHROME_UA, 'Accept-Encoding': 'gzip, deflate' },
-    }, (res) => {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        return ytFetchDirect(res.headers.location).then(resolve, reject);
-      }
-      let stream = res;
-      const enc = (res.headers['content-encoding'] || '').trim().toLowerCase();
-      if (enc === 'gzip') stream = res.pipe(zlib.createGunzip());
-      else if (enc === 'deflate') stream = res.pipe(zlib.createInflate());
-      const chunks = [];
-      stream.on('data', (c) => chunks.push(c));
-      stream.on('end', () => resolve({
-        ok: res.statusCode >= 200 && res.statusCode < 300,
-        status: res.statusCode,
-        body: Buffer.concat(chunks).toString(),
-      }));
-      stream.on('error', reject);
-    });
-    req.on('error', reject);
-    req.setTimeout(12000, () => { req.destroy(); reject(new Error('YouTube timeout')); });
-    req.end();
-  });
-}
-
-async function ytFetch(url) {
-  const proxy = parseProxyUrl(YOUTUBE_PROXY_URL);
-  if (proxy) {
-    try { return await ytFetchViaProxy(url, proxy); } catch { /* fall through */ }
-  }
-  return ytFetchDirect(url);
-}
-
-const ytLiveCache = new Map();
-const YT_CACHE_TTL = 5 * 60 * 1000;
-const YT_CHANNEL_ID_RE = /^UC[A-Za-z0-9_-]{22}$/;
-const YT_HANDLE_RE = /^[\p{L}\p{N}](?:[\p{L}\p{N}\p{M}._·-]{0,28}[\p{L}\p{N}\p{M}])?$/u;
-
-function handleYouTubeLiveRequest(req, res) {
-  const url = new URL(req.url, `http://localhost:${PORT}`);
-  const channel = url.searchParams.get('channel');
-  const videoIdParam = url.searchParams.get('videoId');
-  const handle = channel?.replace(/^@/, '').normalize('NFC') || '';
-  if ((channel && (channel.length > 128 || channel !== channel.trim()
-    || (!YT_CHANNEL_ID_RE.test(channel) && !YT_HANDLE_RE.test(handle))))
-    || (videoIdParam && (videoIdParam.length !== 11 || !/^[A-Za-z0-9_-]{11}$/.test(videoIdParam)))) {
-    return sendCompressed(req, res, 400, { 'Content-Type': 'application/json' },
-      JSON.stringify({ error: 'Invalid YouTube handle, channel ID or video ID' }));
-  }
-
-  if (videoIdParam && /^[A-Za-z0-9_-]{11}$/.test(videoIdParam)) {
-    const cacheKey = `vid:${videoIdParam}`;
-    const cached = ytLiveCache.get(cacheKey);
-    if (cached && Date.now() - cached.ts < 3600000) {
-      return sendCompressed(req, res, 200, { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' }, cached.json);
-    }
-    ytFetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoIdParam}&format=json`)
-      .then(r => {
-        if (r.ok) {
-          try {
-            const data = JSON.parse(r.body);
-            const json = JSON.stringify({ channelName: data.author_name || null, title: data.title || null, videoId: videoIdParam });
-            ytLiveCache.set(cacheKey, { json, ts: Date.now() });
-            return sendCompressed(req, res, 200, { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' }, json);
-          } catch {}
-        }
-        sendCompressed(req, res, 200, { 'Content-Type': 'application/json' },
-          JSON.stringify({ channelName: null, title: null, videoId: videoIdParam }));
-      })
-      .catch(() => {
-        sendCompressed(req, res, 200, { 'Content-Type': 'application/json' },
-          JSON.stringify({ channelName: null, title: null, videoId: videoIdParam }));
-      });
-    return;
-  }
-
-  if (!channel) {
-    return sendCompressed(req, res, 400, { 'Content-Type': 'application/json' },
-      JSON.stringify({ error: 'Missing channel parameter' }));
-  }
-
-  const channelHandle = YT_CHANNEL_ID_RE.test(channel) ? channel : `@${handle.toLowerCase()}`;
-  const cacheKey = `ch:${channelHandle}`;
-  const cached = ytLiveCache.get(cacheKey);
-  if (cached && Date.now() - cached.ts < YT_CACHE_TTL) {
-    return sendCompressed(req, res, 200, {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=60',
-    }, cached.json);
-  }
-
-  const channelPath = YT_CHANNEL_ID_RE.test(channel) ? `channel/${channel}` : `@${encodeURIComponent(handle)}`;
-  const liveUrl = `https://www.youtube.com/${channelPath}/live`;
-  ytFetch(liveUrl)
-    .then(r => {
-      if (!r.ok) {
-        return sendCompressed(req, res, 200, { 'Content-Type': 'application/json' },
-          JSON.stringify({ videoId: null, channelExists: false }));
-      }
-      const html = r.body;
-      const channelExists = html.includes('"channelId"') || html.includes('og:url');
-      let channelName = null;
-      const ownerMatch = html.match(/"ownerChannelName"\s*:\s*"([^"]+)"/);
-      if (ownerMatch) channelName = ownerMatch[1];
-      else { const am = html.match(/"author"\s*:\s*"([^"]+)"/); if (am) channelName = am[1]; }
-
-      let videoId = null;
-      const detailsIdx = html.indexOf('"videoDetails"');
-      if (detailsIdx !== -1) {
-        const block = html.substring(detailsIdx, detailsIdx + 5000);
-        const vidMatch = block.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
-        const liveMatch = block.match(/"isLive"\s*:\s*true/);
-        if (vidMatch && liveMatch) videoId = vidMatch[1];
-      }
-
-      let hlsUrl = null;
-      const hlsMatch = html.match(/"hlsManifestUrl"\s*:\s*"([^"]+)"/);
-      if (hlsMatch && videoId) hlsUrl = hlsMatch[1].replace(/\\u0026/g, '&');
-
-      const json = JSON.stringify({ videoId, isLive: videoId !== null, channelExists, channelName, hlsUrl });
-      ytLiveCache.set(cacheKey, { json, ts: Date.now() });
-      sendCompressed(req, res, 200, {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=60',
-      }, json);
-    })
-    .catch(err => {
-      console.error('[Relay] YouTube live check error:', err.message);
-      sendCompressed(req, res, 200, { 'Content-Type': 'application/json' },
-        JSON.stringify({ videoId: null, error: err.message }));
-    });
-}
-
-// Periodic cleanup for YouTube cache
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, val] of ytLiveCache) {
-    const ttl = key.startsWith('vid:') ? 3600000 : YT_CACHE_TTL;
-    if (now - val.ts > ttl * 2) ytLiveCache.delete(key);
-  }
-}, 5 * 60 * 1000).unref?.();
 
 // ─────────────────────────────────────────────────────────────
 // NOTAM proxy — ICAO API times out from Vercel edge, relay proxies
@@ -11911,6 +11907,7 @@ const server = http.createServer(async (req, res) => {
       enabled: aisEnabled,
       connected: aisConnected,
       currentPositionReady: aisCurrentPositionReady,
+      positionStale: aisPositionStale,
     } = ingestion.ais;
     const aisHasData = vessels.size > 0;
     const aisSnapshotDegraded = aisEnabled && (
@@ -11974,6 +11971,10 @@ const server = http.createServer(async (req, res) => {
           connected: aisConnected,
           hasData: aisHasData,
           currentPositionReady: aisCurrentPositionReady,
+          // Reported beside readiness because it is the same question asked at a
+          // shorter budget: the stream is quiet but not yet worth recycling.
+          positionStale: aisPositionStale,
+          positionStaleMs: ingestion.ais.positionStaleMs,
           upstream: ingestion.ais,
         },
       },
@@ -12726,8 +12727,6 @@ const server = http.createServer(async (req, res) => {
     handleWorldBankRequest(req, res);
   } else if (pathname.startsWith('/polymarket')) {
     handlePolymarketRequest(req, res);
-  } else if (pathname === '/youtube-live') {
-    handleYouTubeLiveRequest(req, res);
   } else if (pathname === '/yahoo-chart') {
     handleYahooChartRequest(req, res);
   } else if (pathname === '/crypto-quotes') {
@@ -13750,8 +13749,18 @@ async function handleWidgetAgentRequest(req, res) {
     }
   }
 
+  // Prefer the edge-validated spend identity. Behind the Vercel proxy every
+  // browser shares this process's peer address, so an IP bucket is one global
+  // cap (or none, when the header is absent) rather than a per-caller cap.
+  const spendHeader = req.headers['x-wm-widget-spend-id'];
+  const spendId = typeof spendHeader === 'string' ? spendHeader.trim() : '';
+  // Widget keys also belong to legacy callers. Only the separate server relay
+  // credential can attest to an identity that passed the edge spend checks.
+  const rateBucket = /^[A-Za-z0-9:_-]{8,128}$/.test(spendId)
+    && RELAY_SHARED_SECRET && isAuthorizedRequest(req) ? `id:${spendId}` : clientIp;
+
   // Rate limiting (separate buckets)
-  const rateLimited = isPro ? checkProWidgetRateLimit(clientIp) : checkWidgetRateLimit(clientIp);
+  const rateLimited = isPro ? checkProWidgetRateLimit(rateBucket) : checkWidgetRateLimit(rateBucket);
   if (rateLimited) {
     return safeEnd(res, 429, { 'Content-Type': 'application/json' }, JSON.stringify({ error: 'Rate limit exceeded' }));
   }
@@ -13780,6 +13789,10 @@ async function handleWidgetAgentRequest(req, res) {
     'X-Accel-Buffering': 'no',
     'Connection': 'keep-alive',
   });
+  // Send the headers before the model turn so the edge proxy can bound connect
+  // time. Without flushHeaders, Node holds writeHead until the first body
+  // write, which only happens after client.messages.create returns.
+  if (typeof res.flushHeaders === 'function') res.flushHeaders();
 
   let cancelled = false;
   req.on('close', () => { cancelled = true; });
@@ -14232,8 +14245,14 @@ function scheduleUpstreamReconnect() {
   if (relayShuttingDown || upstreamReconnectTimer || !API_KEY) return;
   const throttleEscalated = isAisThrottleEscalated();
   const ceilingMs = throttleEscalated ? AIS_THROTTLE_RECONNECT_MAX_MS : AIS_RECONNECT_MAX_MS;
-  const delayMs = nextBackoffMs(upstreamReconnectFailures, AIS_RECONNECT_BASE_MS, ceilingMs);
-  upstreamReconnectFailures++;
+  // The delay comes from the policy that classified the failure (it is the one
+  // place that knows about a Retry-After, the auth probe cadence and the ceiling
+  // escalation). The fallback recomputes the plain ladder for the defensive case
+  // where a reconnect is requested without a recorded outcome.
+  const delayMs = upstreamPendingReconnectDelayMs != null
+    ? upstreamPendingReconnectDelayMs
+    : nextBackoffMs(aisReconnectPolicy.snapshot().attempts, AIS_RECONNECT_BASE_MS, ceilingMs);
+  upstreamPendingReconnectDelayMs = null;
   upstreamReconnectAt = Date.now() + delayMs;
   upstreamReconnectTimer = setTimeout(() => {
     upstreamReconnectTimer = null;
@@ -14242,9 +14261,9 @@ function scheduleUpstreamReconnect() {
   }, delayMs);
   upstreamReconnectTimer.unref?.();
   const escalationNote = throttleEscalated
-    ? ` [throttle-escalated after ${upstreamConsecutiveThrottles} consecutive 429s]`
+    ? ` [throttle-escalated after ${aisReconnectPolicy.snapshot().consecutiveThrottles} consecutive 429s]`
     : '';
-  console.log(`[Relay] AIS reconnect scheduled in ${Math.ceil(delayMs / 1000)}s (attempt=${upstreamReconnectFailures})${escalationNote}`);
+  console.log(`[Relay] AIS reconnect scheduled in ${Math.ceil(delayMs / 1000)}s (attempt=${aisReconnectPolicy.snapshot().attempts})${escalationNote}`);
 }
 
 function connectUpstream() {
@@ -14268,12 +14287,55 @@ function connectUpstream() {
   let socketFailureRecorded = false;
   let socketOpenedAt = 0;
   let socketPositionTimedOut = false;
+  let socketHttpStatus = 0;
+  let socketRetryAfterMs = null;
   let positionWatchdogTimer = null;
   upstreamSocket = socket;
   upstreamLastPositionAt = 0;
+  upstreamLastPositionMono = 0;
+  upstreamSocketOpenedMono = 0;
   lastSnapshotAt = 0;
   clearUpstreamQueue();
   upstreamPaused = false;
+
+  // The single place a socket outcome becomes: health telemetry, the failure the
+  // reconnect policy sees, and the delay the next attempt uses. Exactly one outcome
+  // per socket — `socketFailureRecorded` is the guard, and it is set here so no
+  // second site (close after error, or a duplicate error) can double-count.
+  const recordUpstreamOutcome = ({
+    message = '',
+    statusCode = 0,
+    retryAfterMs = null,
+    servedData = false,
+    positionTimedOut = false,
+  } = {}) => {
+    if (socketFailureRecorded) return null;
+    socketFailureRecorded = true;
+    const classified = classifyAisFailure({ statusCode, message, retryAfterMs, servedData, positionTimedOut });
+    // The relay publishes a distinct label for a close that never carried data.
+    // classifyAisFailure cannot know whether this socket served data, so the
+    // caller's context supplies that one label; every other label comes from the
+    // shared classifier so the two can never disagree about the wording.
+    const label = !servedData && !positionTimedOut && !statusCode && !message
+      ? 'closed_without_data'
+      : classified.label;
+    aisUpstreamMetrics[classified.kind === 'rate-limit' ? 'throttle' : 'terminalFailure']++;
+    aisUpstreamMetrics.lastFailureAt = Date.now();
+    aisUpstreamMetrics.lastFailure = label;
+    // Clear the escalation BEFORE computing the delay when this is not a throttle,
+    // so an unrelated failure falls straight back to the ordinary ceiling instead
+    // of inheriting the throttle block (the ladder itself is unchanged either way).
+    if (classified.kind === 'transport') aisReconnectPolicy.onNonThrottleOutcome();
+    const outcome = aisReconnectPolicy.onFailure(classified.kind, { retryAfterMs });
+    upstreamPendingReconnectDelayMs = outcome.delayMs;
+    if (outcome.terminal) {
+      console.error(
+        `[Relay] Upstream rejected the credential (${label}); probing every `
+        + `${Math.round(AIS_AUTH_PROBE_MS / 1000)}s until valid data or a new key`,
+      );
+    }
+    return { ...classified, label, terminal: outcome.terminal };
+  };
 
   const clearPositionWatchdog = () => {
     if (!positionWatchdogTimer) return;
@@ -14281,21 +14343,39 @@ function connectUpstream() {
     positionWatchdogTimer = null;
   };
 
+  // Release this socket's slot. Shared by the close handler and the
+  // unexpected-response handler: both are terminal for the socket, and a second
+  // path that forgot one of these fields would wedge the reconnect.
+  const releaseUpstreamSocket = () => {
+    clearPositionWatchdog();
+    upstreamSocket = null;
+    upstreamLastPositionAt = 0;
+    upstreamLastPositionMono = 0;
+    upstreamSocketOpenedMono = 0;
+    lastSnapshotAt = 0;
+    clearUpstreamQueue();
+    upstreamPaused = false;
+  };
+
   const armPositionWatchdog = () => {
     clearPositionWatchdog();
     if (upstreamSocket !== socket || socket.readyState !== WebSocket.OPEN || !socketOpenedAt) return;
-    const lastPositionOrOpenAt = upstreamLastPositionAt || socketOpenedAt;
-    const remainingMs = Math.max(1, lastPositionOrOpenAt + AIS_POSITION_FRESHNESS_MS - Date.now());
+    // Monotonic, so an NTP step cannot postpone the recycle of a silent socket.
+    const lastPositionOrOpenMono = upstreamLastPositionMono || upstreamSocketOpenedMono;
+    const remainingMs = Math.max(1, lastPositionOrOpenMono + AIS_POSITION_FRESHNESS_MS - monoNow());
     positionWatchdogTimer = setTimeout(() => {
       positionWatchdogTimer = null;
       if (upstreamSocket !== socket || socket.readyState !== WebSocket.OPEN) return;
-      const latestPositionOrOpenAt = upstreamLastPositionAt || socketOpenedAt;
-      if (Date.now() - latestPositionOrOpenAt < AIS_POSITION_FRESHNESS_MS) {
+      const latestPositionOrOpenMono = upstreamLastPositionMono || upstreamSocketOpenedMono;
+      if (monoNow() - latestPositionOrOpenMono < AIS_POSITION_FRESHNESS_MS) {
         armPositionWatchdog();
         return;
       }
       socketPositionTimedOut = true;
       console.warn(`[Relay] AIS position stream timed out after ${AIS_POSITION_FRESHNESS_MS}ms; reconnecting`);
+      // terminate(), never close(): a graceful close on a socket that is already
+      // not delivering sits in CLOSING without a 'close' event, so the reconnect
+      // never runs and the one-connection-per-key slot stays occupied.
       socket.terminate();
     }, remainingMs);
     positionWatchdogTimer.unref?.();
@@ -14305,6 +14385,13 @@ function connectUpstream() {
     if (upstreamDrainScheduled) return;
     upstreamDrainScheduled = true;
     setImmediate(drainUpstreamQueue);
+  };
+
+  const onSubscriptionError = (message) => {
+    recordUpstreamOutcome({ message });
+    // The key is sent after upgrade, so subscription errors arrive as data.
+    // The close handler releases the socket and schedules the classified delay.
+    socket.terminate();
   };
 
   const drainUpstreamQueue = () => {
@@ -14323,7 +14410,8 @@ function connectUpstream() {
            Date.now() - startedAt < UPSTREAM_DRAIN_BUDGET_MS) {
       const raw = dequeueUpstreamMessage();
       if (!raw) break;
-      const acceptedType = processRawUpstreamMessage(raw);
+      const acceptedType = processRawUpstreamMessage(raw, onSubscriptionError);
+      if (socketFailureRecorded) return;
       if (acceptedType) {
         // A successful WebSocket upgrade or arbitrary JSON frame is not AIS
         // recovery. Only a validated frame accepted into relay state resets
@@ -14334,11 +14422,15 @@ function connectUpstream() {
           aisUpstreamMetrics.lastSuccessAt = Date.now();
           aisUpstreamMetrics.lastFailure = null;
         }
-        upstreamReconnectFailures = 0;
-        upstreamConsecutiveThrottles = 0;
+        // Valid data is the ONLY event that proves the feed works, so it is also
+        // the only one that clears the ladder, the throttle escalation and a
+        // refused credential.
+        aisReconnectPolicy.onAcceptedFrame();
         if (acceptedType === 'position') {
           const wasCurrentPositionReady = getAisPositionFreshness().currentPositionReady;
-          upstreamLastPositionAt = Date.now();
+          const nowMs = Date.now();
+          upstreamLastPositionAt = nowMs;
+          upstreamLastPositionMono = monoNow();
           armPositionWatchdog();
           if (!wasCurrentPositionReady) lastSnapshotAt = 0;
         }
@@ -14363,12 +14455,16 @@ function connectUpstream() {
   socket.on('open', () => {
     // Verify this socket is still the current one (race condition guard)
     if (upstreamSocket !== socket) {
-      console.log('[Relay] Stale socket open event, closing');
-      socket.close();
+      console.log('[Relay] Stale socket open event, terminating');
+      // terminate(), not close(): this socket no longer owns the slot, and a
+      // graceful close would leave it in CLOSING holding the one stream per key
+      // the provider allows.
+      socket.terminate();
       return;
     }
     console.log('[Relay] Connected to aisstream.io');
     socketOpenedAt = Date.now();
+    upstreamSocketOpenedMono = monoNow();
     armPositionWatchdog();
     socket.send(JSON.stringify({
       APIKey: API_KEY,
@@ -14402,40 +14498,60 @@ function connectUpstream() {
     scheduleUpstreamDrain();
   });
 
-  socket.on('close', () => {
+  socket.on('close', (_code, reason) => {
     if (upstreamSocket === socket) {
-      clearPositionWatchdog();
       if (!relayShuttingDown && !socketFailureRecorded) {
-        aisUpstreamMetrics.terminalFailure++;
-        aisUpstreamMetrics.lastFailureAt = Date.now();
-        aisUpstreamMetrics.lastFailure = socketPositionTimedOut
-          ? 'position_timeout'
-          : (socketServedData ? 'disconnected' : 'closed_without_data');
-        // A close with no recorded error is by definition not a throttle.
-        upstreamConsecutiveThrottles = 0;
+        const message = reason.toString();
+        const failure = classifyAisFailure({ message });
+        if (failure.kind !== 'rate-limit') aisReconnectPolicy.onCleanClose();
+        recordUpstreamOutcome({
+          // A generic policy close can mean a malformed subscription, not auth.
+          message: failure.kind === 'transport' ? '' : message,
+          servedData: socketServedData,
+          positionTimedOut: socketPositionTimedOut,
+        });
       }
-      upstreamSocket = null;
-      upstreamLastPositionAt = 0;
-      lastSnapshotAt = 0;
-      clearUpstreamQueue();
-      upstreamPaused = false;
+      releaseUpstreamSocket();
       console.log('[Relay] Disconnected');
       scheduleUpstreamReconnect();
     }
   });
 
   socket.on('error', (err) => {
-    if (!socketFailureRecorded) {
-      socketFailureRecorded = true;
-      const throttled = /\b429\b/.test(String(err?.message || ''));
-      aisUpstreamMetrics[throttled ? 'throttle' : 'terminalFailure']++;
-      aisUpstreamMetrics.lastFailureAt = Date.now();
-      aisUpstreamMetrics.lastFailure = throttled ? 'http_429' : 'connection_error';
-      // Only an unbroken run of 429s escalates the ceiling; a different failure
-      // means we are no longer being rate-limited and the ordinary schedule applies.
-      upstreamConsecutiveThrottles = throttled ? upstreamConsecutiveThrottles + 1 : 0;
+    const message = String(err?.message || '');
+    // The classifier is what promotes a 401/403 (or AISstream's wording for a bad
+    // key) out of the ordinary ladder and into the terminal auth state. A 429 stays
+    // a throttle, and anything else stays an ordinary transport failure.
+    recordUpstreamOutcome({
+      message,
+      statusCode: socketHttpStatus,
+      retryAfterMs: socketRetryAfterMs,
+    });
+    console.error('[Relay] Upstream error:', message);
+  });
+
+  // `ws` only exposes the upgrade response — and with it Retry-After — through this
+  // event, otherwise it emits a generic error and the server's own pacing hint never
+  // reaches the ladder. Installing the listener transfers teardown to us: verified
+  // against this `ws` version that afterwards NO error and NO close event fires and
+  // the socket stays CONNECTING, so a handler that only captured the status would
+  // leak the one-connection-per-key slot and silently stop reconnecting. Hence the
+  // explicit release + schedule, identical to the close path.
+  socket.on('unexpected-response', (req, res) => {
+    res.resume();
+    req.destroy();
+    if (upstreamSocket !== socket) return;
+    socketHttpStatus = Number(res?.statusCode) || 0;
+    socketRetryAfterMs = parseRetryAfterHeaderMs(res?.headers?.['retry-after']);
+    recordUpstreamOutcome({
+      statusCode: socketHttpStatus,
+      retryAfterMs: socketRetryAfterMs,
+      message: `Unexpected server response: ${socketHttpStatus}`,
+    });
+    if (!relayShuttingDown) {
+      releaseUpstreamSocket();
+      scheduleUpstreamReconnect();
     }
-    console.error('[Relay] Upstream error:', err.message);
   });
 }
 
@@ -14582,7 +14698,9 @@ async function gracefulShutdown(signal) {
     destroyTelegramClient();
   }
   if (upstreamSocket) {
-    try { upstreamSocket.close(); } catch {}
+    // terminate(), not close(): shutdown must not wait on a socket that is
+    // already silent, and the process is about to exit regardless.
+    try { upstreamSocket.terminate(); } catch {}
   }
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 12_000);

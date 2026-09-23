@@ -143,6 +143,24 @@ if (fs.existsSync(middlewarePath)) {
   run('git commit --amend --no-edit', { allowFailure: true, silent: true });
 }
 
+// Remove all upstream workflows except sync-upstream.yml so no failing upstream CI runs
+const workflowsDir = path.join(ROOT, '.github', 'workflows');
+if (fs.existsSync(workflowsDir)) {
+  const files = fs.readdirSync(workflowsDir);
+  let removedAny = false;
+  for (const file of files) {
+    if (file !== 'sync-upstream.yml') {
+      const fullPath = path.join(workflowsDir, file);
+      fs.rmSync(fullPath, { recursive: true, force: true });
+      run(`git rm -f ".github/workflows/${file}"`, { allowFailure: true, silent: true });
+      removedAny = true;
+    }
+  }
+  if (removedAny) {
+    run('git commit --amend --no-edit', { allowFailure: true, silent: true });
+  }
+}
+
 // 6. Test build integrity (only if node_modules already exists or in CI)
 if (process.env.CI || fs.existsSync(path.join(ROOT, 'node_modules'))) {
   console.log('\n[5/5] Verifying build integrity...');

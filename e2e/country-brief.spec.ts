@@ -1,9 +1,10 @@
-import type { Page, TestInfo } from '@playwright/test';
+import type { Locator, Page, TestInfo } from '@playwright/test';
 import { test, expect, HYDRATED_MARKET } from './country-brief-fixtures';
 import { readFile } from 'node:fs/promises';
 import { installCountryBriefDesignData, installDecisionBriefData, installCommodityBriefData } from './country-brief-design-fixtures';
 
-test.use({ trace: 'on', serviceWorkers: 'block' });
+const recording = process.env.CI ? 'on-first-retry' : 'retain-on-failure';
+test.use({ trace: recording, video: recording, serviceWorkers: 'block' });
 
 function marketsCard(page: Page) {
   return page.locator('#country-deep-dive-panel .cdp-card').filter({
@@ -588,8 +589,7 @@ test('decision brief clears and stays usable when a selection change aborts a ca
   await expect(panel.getByRole('button', { name: 'Capture / refresh both' })).toBeEnabled();
 });
 
-for (const { mobile, light } of [{ mobile: false, light: false }, { mobile: true, light: false }, { mobile: false, light: true }, { mobile: true, light: true }]) test(`commodity decision brief ${mobile ? 'mobile' : 'desktop'} ${light ? 'light' : 'dark'} captures selection and actual exports`, async ({ page, countryBrief }, testInfo) => {
-  void countryBrief;
+async function openCommodityBrief(page: Page, { mobile, light }: { mobile: boolean; light: boolean }) {
   if (mobile) await page.setViewportSize({ width: 390, height: 844 });
   await installCommodityBriefData(page);
   await page.addInitScript(theme => localStorage.setItem('worldmonitor-theme', theme), light ? 'light' : 'dark');
@@ -599,21 +599,52 @@ for (const { mobile, light } of [{ mobile: false, light: false }, { mobile: true
   await panel.getByRole('button', { name: 'Commodity decision brief', exact: true }).click();
   const output = panel.getByRole('region', { name: 'Commodity decision brief', exact: true });
   await expect(output.getByLabel('Commodity / product', { exact: true })).toHaveValue('helium');
-  await page.screenshot({ path: testInfo.outputPath('before.png') });
+  return output;
+}
+
+async function downloadCommodityBrief(page: Page, testInfo: TestInfo, commodity: string, format: 'HTML' | 'JSON') {
+  const output = page.getByRole('region', { name: 'Commodity decision brief', exact: true });
+  const event = page.waitForEvent('download');
+  await output.getByRole('button', { name: `Download decision ${format}`, exact: true }).click();
+  const download = await event;
+  const path = testInfo.outputPath(`${commodity}-${download.suggestedFilename()}`);
+  await download.saveAs(path);
+  return readFile(path, 'utf8');
+}
+
+async function expectCommodityPresentation(page: Page, output: Locator, testInfo: TestInfo) {
+  const paper = output.locator('.cdp-commodity-paper');
+  expect(await paper.evaluate(el => getComputedStyle(el).color)).toBe(
+    await output.evaluate(el => getComputedStyle(el).color),
+  );
+  expect(await paper.evaluate(el => getComputedStyle(el).getPropertyValue('--panel-bg').trim())).toBe(
+    await output.evaluate(el => getComputedStyle(el).getPropertyValue('--panel-bg').trim()),
+  );
+  const details = paper.locator('[data-origin="QA"] details');
+  await details.locator('summary').focus();
+  await details.locator('summary').press('Enter');
+  await expect(details).toHaveAttribute('open', '');
+  expect(await details.locator('summary').evaluate(el => getComputedStyle(el).outlineStyle)).not.toBe('none');
+  await expect(details).toContainText('UN Comtrade bilateral HS4');
+  await details.locator('summary').click();
+  await expect(details).not.toHaveAttribute('open');
+  expect(await output.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  await page.locator('#country-deep-dive-panel .panel-content').evaluate(el => { el.scrollTop = 0; });
+  await page.screenshot({ path: testInfo.outputPath('helium-preview.png') });
+}
+
+test('commodity decision brief desktop dark preserves presentation and all commodity exports', async ({ page, countryBrief }, testInfo) => {
+  void countryBrief;
+  const output = await openCommodityBrief(page, { mobile: false, light: false });
   for (const commodity of ['helium', 'wheat', 'lithium']) {
     await output.getByLabel('Commodity / product', { exact: true }).selectOption(commodity);
     await expect(output.getByRole('button', { name: 'Download decision JSON' })).toBeDisabled();
     await output.getByRole('button', { name: 'Capture commodity comparison' }).click();
     await expect(output.getByRole('status')).toContainText('Captured.');
     const paper = output.locator('.cdp-commodity-paper');
-    expect(await paper.evaluate(el => getComputedStyle(el).color)).toBe(
-      await output.evaluate(el => getComputedStyle(el).color),
-    );
-    expect(await paper.evaluate(el => getComputedStyle(el).getPropertyValue('--panel-bg').trim())).toBe(
-      await output.evaluate(el => getComputedStyle(el).getPropertyValue('--panel-bg').trim()),
-    );
     const snapshot = JSON.parse(await paper.locator('#commodity-brief-snapshot').textContent() ?? 'null');
     if (commodity === 'helium') {
+      await expectCommodityPresentation(page, output, testInfo);
       await expect(paper).toContainText('hospital helium supplier share');
       await expect(paper.locator('[data-origin="QA"]')).toContainText('Strait of Hormuz');
       expect(snapshot.candidates.find((c: { origin: string }) => c.origin === 'QA').routeState).toBe('exposed');
@@ -630,13 +661,6 @@ for (const { mobile, light } of [{ mobile: false, light: false }, { mobile: true
       // skip it: the action names NL and says the flag was unavoidable there.
       expect(snapshot.action.text).toContain("Validate NL's");
       expect(snapshot.action.text).toContain('Every eligible origin with this route state is flagged a possible transit hub');
-      const details = paper.locator('[data-origin="QA"] details');
-      await details.locator('summary').focus();
-      await details.locator('summary').press('Enter');
-      await expect(details).toHaveAttribute('open', '');
-      expect(await details.locator('summary').evaluate(el => getComputedStyle(el).outlineStyle)).not.toBe('none');
-      await expect(details).toContainText('UN Comtrade bilateral HS4');
-      await details.locator('summary').click();
     } else if (commodity === 'wheat') {
       expect(snapshot.candidates.map((c: { origin: string }) => c.origin)).toEqual(['AU']);
       expect(snapshot.candidates[0].routeState).toBe('unknown');
@@ -650,12 +674,8 @@ for (const { mobile, light } of [{ mobile: false, light: false }, { mobile: true
       await expect(paper).toContainText('Share coverage is unknown: no product denominator is available');
     }
     const files: Record<string, string> = {};
-    for (const format of ['HTML', 'JSON']) {
-      const event = page.waitForEvent('download');
-      await output.getByRole('button', { name: `Download decision ${format}`, exact: true }).click();
-      const download = await event;
-      const path = testInfo.outputPath(`${commodity}-${download.suggestedFilename()}`);
-      await download.saveAs(path); files[format] = await readFile(path, 'utf8');
+    for (const format of ['HTML', 'JSON'] as const) {
+      files[format] = await downloadCommodityBrief(page, testInfo, commodity, format);
     }
     expect(JSON.parse(files.JSON!)).toEqual(snapshot);
     const exported = await page.context().newPage();
@@ -676,12 +696,91 @@ for (const { mobile, light } of [{ mobile: false, light: false }, { mobile: true
     }
     await exported.screenshot({ path: testInfo.outputPath(`${commodity}-export.png`), fullPage: true });
     await exported.close();
-    await panel.locator('.panel-content').evaluate(el => { el.scrollTop = 0; });
-    await page.screenshot({ path: testInfo.outputPath(`${commodity}-preview.png`) });
     expect(await output.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
   }
 });
 
+test('country report export keeps safe links and removes unsafe or malformed URLs', async ({ page, countryBrief }, testInfo) => {
+  countryBrief.response = { markets: [], dataAvailable: true, fetchedAt: 0 };
+  await page.goto('/dashboard?country=UA&expanded=1');
+  await expectCountry(page);
+  await marketsCard(page).evaluate(card => {
+    const fixture = document.createElement('div'); fixture.className = 'export-url-fixture';
+    const heading = document.createElement('h3'); heading.id = 'fixture-evidence'; heading.textContent = 'Controlled export link fixtures';
+    fixture.append(heading);
+    for (const [label, href] of [['Fragment', '#fixture-evidence'], ['Web source', 'https://example.com/evidence?a=1&b=2'],
+      ['Relative source', '/sources'], ['Unsafe scheme', 'javascript:void(0)'], ['Data scheme', 'data:text/html,fixture'],
+      ['Malformed URL', 'http://[']]) {
+      const row = document.createElement('p');
+      const anchor = document.createElement('a'); anchor.textContent = label!; anchor.setAttribute('href', href!);
+      row.append(anchor); fixture.append(row);
+    }
+    card.append(fixture);
+  });
+  const panel = page.locator('#country-deep-dive-panel');
+  await panel.getByRole('button', { name: 'Export report ↗', exact: true }).click();
+  const fixture = panel.locator('.cdp-output-paper .export-url-fixture');
+  await expect(fixture.locator('a[href]')).toHaveCount(3);
+  await expect(fixture.getByText('Fragment', { exact: true })).toHaveAttribute('href', '#export-fixture-evidence');
+  await expect(fixture.getByText('Web source', { exact: true })).toHaveAttribute('href', 'https://example.com/evidence?a=1&b=2');
+  await fixture.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath('export-url-policy-preview.png') });
+  const event = page.waitForEvent('download');
+  await panel.getByRole('button', { name: 'Download report HTML', exact: true }).click();
+  const download = await event;
+  const path = testInfo.outputPath(download.suggestedFilename());
+  await download.saveAs(path);
+  const html = await readFile(path, 'utf8');
+  const exported = await page.context().newPage();
+  await exported.route('http://brief-export.test/', route => route.fulfill({ body: html, contentType: 'text/html' }));
+  await exported.goto('http://brief-export.test/', { waitUntil: 'domcontentloaded' });
+  const saved = exported.locator('.export-url-fixture');
+  await expect(saved.locator('a[href]')).toHaveCount(3);
+  await expect(saved.locator('a:not([href])')).toHaveText(['Unsafe scheme', 'Data scheme', 'Malformed URL']);
+  await expect(saved.getByText('Relative source', { exact: true })).toHaveAttribute('href', 'https://worldmonitor.app/sources');
+  await expect(exported.locator('meta[http-equiv="Content-Security-Policy"]')).toHaveAttribute('content', "default-src 'none'; style-src 'unsafe-inline'; img-src data: https:; base-uri 'none'; form-action 'none'");
+  await saved.scrollIntoViewIfNeeded();
+  await exported.screenshot({ path: testInfo.outputPath('export-url-policy-downloaded.png') });
+  await exported.close();
+});
+
+for (const { mobile, light } of [
+  { mobile: true, light: false },
+  { mobile: false, light: true }, { mobile: true, light: true },
+]) {
+  test(`commodity decision brief ${mobile ? 'mobile' : 'desktop'} ${light ? 'light' : 'dark'} preserves presentation and switching`, async ({ page, countryBrief }, testInfo) => {
+    void countryBrief;
+    const output = await openCommodityBrief(page, { mobile, light });
+    await output.getByRole('button', { name: 'Capture commodity comparison' }).click();
+    await expect(output.getByRole('status')).toContainText('Captured.');
+    const paper = output.locator('.cdp-commodity-paper');
+    await expectCommodityPresentation(page, output, testInfo);
+
+    // Exercise both download controls at each viewport; exhaustive export
+    // contents are checked once in the three-commodity test above.
+    const snapshot = JSON.parse(await paper.locator('#commodity-brief-snapshot').textContent() ?? 'null');
+    const json = await downloadCommodityBrief(page, testInfo, 'helium', 'JSON');
+    expect(JSON.parse(json)).toEqual(snapshot);
+    const html = await downloadCommodityBrief(page, testInfo, 'helium', 'HTML');
+    const exported = await page.context().newPage();
+    await exported.setContent(html, { waitUntil: 'domcontentloaded' });
+    expect(JSON.parse(await exported.locator('#commodity-brief-snapshot').textContent() ?? 'null')).toEqual(snapshot);
+    await exported.screenshot({ path: testInfo.outputPath('helium-export.png'), fullPage: true });
+    await exported.close();
+
+    await output.getByLabel('Commodity / product', { exact: true }).selectOption('wheat');
+    await expect(paper).toHaveCount(0);
+    await expect(output.getByRole('button', { name: 'Download decision JSON' })).toBeDisabled();
+    await expect(output.getByRole('button', { name: 'Download decision HTML' })).toBeDisabled();
+    await output.getByRole('button', { name: 'Capture commodity comparison' }).click();
+    await expect(output.getByRole('status')).toContainText('Captured.');
+    await expect(paper.locator('[data-origin="AU"]')).toContainText('Route unknown');
+    await expect(paper).not.toContainText('hospital');
+    await expect(output.getByRole('button', { name: 'Download decision JSON' })).toBeEnabled();
+    await expect(output.getByRole('button', { name: 'Download decision HTML' })).toBeEnabled();
+    expect(await output.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  });
+}
 
 test('country brief excludes global temporal observations from country signals', async ({ page, countryBrief }, testInfo) => {
   countryBrief.temporalCount = 3;

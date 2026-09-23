@@ -932,7 +932,7 @@
     "webcams": {
       "paused": "Webcams paused",
       "play": "Play",
-      "previewStatus": "Live preview",
+      "previewStatus": "Готово до відтворення",
       "regions": {
         "all": "ALL",
         "mideast": "MIDEAST",
@@ -940,7 +940,11 @@
         "americas": "AMERICAS",
         "asia": "ASIA",
         "space": "SPACE"
-      }
+      },
+      "connecting": "Підключення…",
+      "unverified": "Не вдається підтвердити, що потік в прямому ефірі",
+      "offline": "{{city}} зараз у режимі офлайн",
+      "noFeeds": "Немає живих веб-камер у цьому регіоні"
     },
     "pinnedWebcams": {
       "pinFromMap": "Pin a webcam from the map"
@@ -1326,9 +1330,6 @@
       "datacenter": "Datacenter",
       "base": "Base",
       "nuclear": "Nuclear"
-    },
-    "community": {
-      "joinDiscussion": "Help Shape What's Next"
     },
     "threatLabels": {
       "critical": "CRIT",
@@ -2059,6 +2060,7 @@
       "etfs": "ETFs",
       "netInflow": "NET INFLOW",
       "netOutflow": "NET OUTFLOW",
+      "netNeutral": "ЧИСТИЙ НЕЙТРАЛ",
       "table": {
         "ticker": "Ticker",
         "issuer": "Issuer",
@@ -2266,8 +2268,6 @@
     },
     "liveNews": {
       "notLive": "{{name}} is not currently live",
-      "cannotEmbed": "{{name}} can't be played here — it may be restricted in your region (error {{code}})",
-      "botCheck": "YouTube is requesting sign-in to play {{name}}",
       "signInToYouTube": "Sign in to YouTube",
       "openOnYouTube": "Open on YouTube",
       "playLiveFeed": "Play live feed",
@@ -2275,8 +2275,6 @@
       "manage": "Manage channels",
       "addChannel": "Add channel",
       "remove": "Remove",
-      "youtubeHandle": "YouTube handle (e.g. @Channel)",
-      "youtubeHandleOrUrl": "YouTube handle or URL",
       "displayName": "Display name (optional)",
       "channelSettings": "Channel Settings",
       "save": "Save",
@@ -2292,10 +2290,22 @@
       "regionMiddleEast": "Middle East",
       "regionAfrica": "Africa",
       "regionOceania": "Oceania",
-      "invalidHandle": "Enter a valid YouTube handle (e.g. @ChannelName)",
       "verifying": "Verifying…",
       "hlsUrl": "HLS Stream URL (optional)",
-      "invalidHlsUrl": "Enter a valid HLS stream URL (.m3u8)"
+      "invalidHlsUrl": "Enter a valid HLS stream URL (.m3u8)",
+      "embedBlocked": "YouTube зараз не відтворює {{name}} всередині інших сайтів",
+      "unavailable": "{{name}} зараз неможливо відтворити",
+      "noStream": "Для {{name}} ще не налаштовано трансляцію в прямому ефірі",
+      "needsChannelUrl": "Додайте {{name}} знову з його адресою каналу (youtube.com/channel/UC…) або адресою відео в прямому ефірі",
+      "connecting": "Підключення до {{name}}…",
+      "recording": "Запис",
+      "unverified": "Не вдається підтвердити, що цей потік є прямим ефіром",
+      "playNextChannel": "Відтворити наступний канал",
+      "channelOrVideoUrl": "Канал YouTube або адреса відео",
+      "channelUrlHint": "Вставте адресу каналу (youtube.com/channel/UC…) або адресу відео в прямому ефірі",
+      "youtubeChannel": "Канал YouTube",
+      "insecureStream": "{{name}} використовує небезпечний потік (http), який браузери блокують. Додайте його знову з безпечною адресою потоку (https)",
+      "httpsStreamHint": "Браузери блокують небезпечні потоки (http). Вставте безпечну адресу потоку (https)"
     },
     "map": {
       "showMap": "Show Map",
@@ -2405,7 +2415,7 @@
       "infoTooltip": "<strong>Economic Calendar</strong> Scheduled macroeconomic releases: CPI, NFP, GDP, PMI, and central bank decisions. Shows forecast vs actual vs prior. High-impact events highlighted. Source: economic data providers."
     },
     "fsi": {
-      "infoTooltip": "<strong>Financial Stress Indicator</strong> Kansas City Fed Financial Stress Index (KCFSI): measures stress in US financial markets using 11 indicators including yield spreads, volatility, and cross-correlations. Positive values indicate above-average stress. Source: Federal Reserve Bank of Kansas City.",
+      "infoTooltip": "<strong>Індикатор фінансового стресу</strong> Співвідношення WorldMonitor високодохідного кредиту до довгострокових казначейських облігацій США, скориговане на волатильність акцій і спред високодохідних облігацій: (HYG / TLT) / (VIX × HY spread / 100). Це не Індекс фінансового стресу Федерального резервного банку Канзас-Сіті. Значення 1.5 або вище означає низький стрес; нижче 0.3 — високий стрес.",
       "title": "Financial Stress Indicator",
       "usFsiValue": "US FSI VALUE",
       "cissTitle": "EU CISS (Euro Area Systemic Stress)",

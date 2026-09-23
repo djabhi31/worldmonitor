@@ -493,7 +493,11 @@
       },
       "paused": "Webcams gepauzeerd",
       "play": "Afspelen",
-      "previewStatus": "Livevoorbeeld"
+      "previewStatus": "Klaar om af te spelen",
+      "connecting": "Verbinding wordt tot stand gebracht…",
+      "unverified": "Kan niet bevestigen dat deze stream live is",
+      "offline": "{{city}} is momenteel offline",
+      "noFeeds": "Geen live webcams in deze regio op dit moment"
     },
     "playback": {
       "live": "Live",
@@ -757,9 +761,6 @@
       "datacenter": "Datacentrum",
       "base": "Basis",
       "nuclear": "Nucleair"
-    },
-    "community": {
-      "joinDiscussion": "Help Shape What's Next"
     },
     "threatLabels": {
       "critical": "KRIT",
@@ -1379,6 +1380,7 @@
       "etfs": "ETF's",
       "netInflow": "NETTO INSTROOM",
       "netOutflow": "NETTO UITSTROOM",
+      "netNeutral": "NETTO NEUTRAAL",
       "table": {
         "ticker": "Ticker",
         "issuer": "Uitgever",
@@ -1462,13 +1464,10 @@
     },
     "liveNews": {
       "notLive": "{{name}} is not currently live",
-      "cannotEmbed": "{{name}} kan hier niet worden afgespeeld — mogelijk beperkt in uw regio (fout {{code}})",
       "openOnYouTube": "Open on YouTube",
       "manage": "Kanalen beheren",
       "addChannel": "Kanaal toevoegen",
       "remove": "Verwijderen",
-      "youtubeHandle": "YouTube-handle (bijv. @Channel)",
-      "youtubeHandleOrUrl": "YouTube-handle of URL",
       "displayName": "Weergavenaam (optioneel)",
       "channelSettings": "Kanaalinstellingen",
       "save": "Opslaan",
@@ -1483,15 +1482,26 @@
       "regionMiddleEast": "Midden-Oosten",
       "regionAfrica": "Afrika",
       "regionOceania": "Oceanië",
-      "botCheck": "YouTube vraagt om in te loggen om {{name}} af te spelen",
-      "invalidHandle": "Voer een geldig YouTube-handle in (bijv. @Kanaalnaam)",
       "signInToYouTube": "Inloggen bij YouTube",
       "verifying": "Verifiëren…",
       "noResults": "Geen kanalen gevonden voor \"{{term}}\"",
       "hlsUrl": "HLS-stream-URL (optioneel)",
       "invalidHlsUrl": "Voer een geldige HLS-stream-URL in (.m3u8)",
       "playLiveFeed": "Livefeed afspelen",
-      "readyStatus": "Klaar wanneer jij dat bent"
+      "readyStatus": "Klaar wanneer jij dat bent",
+      "embedBlocked": "YouTube speelt {{name}} momenteel niet af in andere sites",
+      "unavailable": "{{name}} kan momenteel niet worden afgespeeld",
+      "noStream": "Er is nog geen livestream ingesteld voor {{name}}",
+      "needsChannelUrl": "Voeg {{name}} opnieuw toe met het kanaal-URL (youtube.com/channel/UC…) of een live-video-URL",
+      "insecureStream": "{{name}} gebruikt een onveilige (http) stream, die browsers blokkeren. Voeg het opnieuw toe met een veilige (https) stream-URL",
+      "connecting": "Verbinding maken met {{name}}…",
+      "recording": "Opnemen",
+      "unverified": "Kan niet bevestigen dat deze stream live is",
+      "playNextChannel": "Volgende kanaal afspelen",
+      "channelOrVideoUrl": "YouTube-kanaal of video-URL",
+      "channelUrlHint": "Plak een kanaal-URL (youtube.com/channel/UC…) of een live-video-URL",
+      "youtubeChannel": "YouTube-kanaal",
+      "httpsStreamHint": "Browsers blokkeren onveilige (http) streams. Plak een veilige (https) stream-URL"
     },
     "securityAdvisories": {
       "loading": "Reisadviezen laden...",
@@ -1794,7 +1804,7 @@
       "infoTooltip": "<strong>Economische kalender</strong> Geplande macro-economische publicaties: CPI, NFP, GDP, PMI en centrale bankbesluiten. Toont prognose vs. werkelijk vs. vorig. Gebeurtenissen met hoge impact zijn gemarkeerd. Bron: economische dataproviders."
     },
     "fsi": {
-      "infoTooltip": "<strong>Financiële stress-indicator</strong> Kansas City Fed Financial Stress Index (KCFSI): meet stress op Amerikaanse financiële markten aan de hand van 11 indicatoren waaronder rentespreads, volatiliteit en kruiscorrelaties. Positieve waarden duiden op bovengemiddelde stress. Bron: Federal Reserve Bank of Kansas City.",
+      "infoTooltip": "<strong>Financiële-stressindicator</strong> WorldMonitor-verhouding van hoogrentend krediet tot langlopende Amerikaanse staatsobligaties, gecorrigeerd voor aandelenvolatiliteit en de hoogrentende spread: (HYG / TLT) / (VIX × HY spread / 100). Dit is niet de Financial Stress Index van de Federal Reserve Bank of Kansas City. Een waarde van 1.5 of hoger betekent lage stress; onder 0.3 betekent hoge stress.",
       "title": "Financiële stressindicator",
       "usFsiValue": "US FSI-WAARDE",
       "cissTitle": "EU CISS (systeemstress eurozone)",

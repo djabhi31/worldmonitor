@@ -862,7 +862,11 @@
         "space": "อวกาศ"
       },
       "play": "เล่น",
-      "previewStatus": "ตัวอย่างสด"
+      "previewStatus": "พร้อมที่จะเล่น",
+      "connecting": "กำลังเชื่อมต่อ…",
+      "unverified": "ไม่สามารถยืนยันว่าสตรีมนี้ออนไลน์ได้",
+      "offline": "{{city}} ออฟไลน์ในขณะนี้",
+      "noFeeds": "ไม่มีเว็บแคมสดในภูมิภาคนี้ในขณะนี้"
     },
     "positiveNewsFeed": {
       "noStories": "ยังไม่มีเรื่องราวในหมวดนี้"
@@ -1174,9 +1178,6 @@
       "datacenter": "ศูนย์ข้อมูล",
       "base": "ฐานทัพ",
       "nuclear": "นิวเคลียร์"
-    },
-    "community": {
-      "joinDiscussion": "Help Shape What's Next"
     },
     "threatLabels": {
       "critical": "วิกฤต",
@@ -1901,6 +1902,7 @@
       "etfs": "ETF",
       "netInflow": "กระแสเข้าสุทธิ",
       "netOutflow": "กระแสออกสุทธิ",
+      "netNeutral": "กระแสสุทธิเป็นกลาง",
       "table": {
         "ticker": "สัญลักษณ์",
         "issuer": "ผู้ออก",
@@ -1983,15 +1985,11 @@
     },
     "liveNews": {
       "notLive": "{{name}} ไม่ได้ถ่ายทอดสดอยู่ในขณะนี้",
-      "cannotEmbed": "ไม่สามารถเล่น {{name}} ที่นี่ได้ — อาจถูกจำกัดในภูมิภาคของคุณ (ข้อผิดพลาด {{code}})",
-      "botCheck": "YouTube กำลังขอให้ลงชื่อเข้าใช้เพื่อเล่น {{name}}",
       "signInToYouTube": "ลงชื่อเข้าใช้ YouTube",
       "openOnYouTube": "เปิดบน YouTube",
       "manage": "จัดการช่อง",
       "addChannel": "เพิ่มช่อง",
       "remove": "ลบ",
-      "youtubeHandle": "YouTube handle (เช่น @Channel)",
-      "youtubeHandleOrUrl": "แฮนเดิล YouTube หรือ URL",
       "displayName": "ชื่อที่แสดง (ไม่บังคับ)",
       "channelSettings": "การตั้งค่าช่อง",
       "save": "บันทึก",
@@ -2007,12 +2005,24 @@
       "regionMiddleEast": "ตะวันออกกลาง",
       "regionAfrica": "แอฟริกา",
       "regionOceania": "โอเชียเนีย",
-      "invalidHandle": "ป้อนแฮนเดิล YouTube ที่ถูกต้อง (เช่น @ชื่อช่อง)",
       "verifying": "กำลังตรวจสอบ…",
       "hlsUrl": "URL สตรีม HLS (ไม่บังคับ)",
       "invalidHlsUrl": "กรุณากรอก URL สตรีม HLS (.m3u8) ที่ถูกต้อง",
       "playLiveFeed": "เล่นฟีดสด",
-      "readyStatus": "พร้อมเมื่อคุณพร้อม"
+      "readyStatus": "พร้อมเมื่อคุณพร้อม",
+      "embedBlocked": "YouTube จะไม่เล่น {{name}} ภายในเว็บไซต์อื่นในตอนนี้",
+      "unavailable": "{{name}} ไม่สามารถเล่นได้ในตอนนี้",
+      "noStream": "ยังไม่มีการตั้งค่าการถ่ายทำสดสำหรับ {{name}}",
+      "needsChannelUrl": "เพิ่ม {{name}} อีกครั้งพร้อมกับ URL ช่องของมัน (youtube.com/channel/UC…) หรือ URL วิดีโอสดสำหรับ",
+      "insecureStream": "{{name}} ใช้สตรีมที่ไม่ปลอดภัย (http) ซึ่งเบราว์เซอร์จะบล็อก เพิ่มอีกครั้งพร้อมกับ URL สตรีมที่ปลอดภัย (https)",
+      "connecting": "กำลังเชื่อมต่อกับ {{name}}…",
+      "recording": "กำลังบันทึก",
+      "unverified": "ไม่สามารถยืนยันว่าสตรีมนี้ออนไลน์",
+      "playNextChannel": "เล่นช่องถัดไป",
+      "channelOrVideoUrl": "URL ช่อง YouTube หรือ URL วิดีโอ",
+      "channelUrlHint": "วางลิงก์ URL ช่อง (youtube.com/channel/UC…) หรือ URL วิดีโอสด",
+      "youtubeChannel": "ช่อง YouTube",
+      "httpsStreamHint": "เบราว์เซอร์จะบล็อกสตรีมที่ไม่ปลอดภัย (http) วาง URL สตรีมที่ปลอดภัย (https)"
     },
     "map": {
       "showMap": "แสดงแผนที่",
@@ -2166,7 +2176,7 @@
       "infoTooltip": "<strong>ปฏิทินเศรษฐกิจ</strong> การเผยแพร่ข้อมูลเศรษฐกิจมหภาคตามกำหนด: CPI, NFP, GDP, PMI และการตัดสินใจของธนาคารกลาง แสดงคาดการณ์ เทียบกับจริง เทียบกับก่อนหน้า เหตุการณ์ที่มีผลกระทบสูงถูกเน้น แหล่งข้อมูล: ผู้ให้บริการข้อมูลเศรษฐกิจ"
     },
     "fsi": {
-      "infoTooltip": "<strong>ตัวบ่งชี้ความเครียดทางการเงิน</strong> ดัชนีความเครียดทางการเงินของ Fed แคนซัสซิตี (KCFSI): วัดความเครียดในตลาดการเงินสหรัฐฯ โดยใช้ตัวบ่งชี้ 11 ตัว รวมถึงสเปรดผลตอบแทน ความผันผวน และสหสัมพันธ์ข้าม ค่าบวกบ่งชี้ความเครียดเหนือค่าเฉลี่ย แหล่งข้อมูล: Federal Reserve Bank of Kansas City",
+      "infoTooltip": "<strong>ตัวบ่งชี้ความเครียดทางการเงิน</strong> อัตราส่วนของ WorldMonitor ระหว่างเครดิตผลตอบแทนสูงกับพันธบัตรรัฐบาลสหรัฐฯ ระยะยาว ซึ่งปรับด้วยความผันผวนของหุ้นและส่วนต่างผลตอบแทนสูง: (HYG / TLT) / (VIX × HY spread / 100) นี่ไม่ใช่ดัชนีความเครียดทางการเงินของธนาคารกลางสหรัฐฯ สาขาแคนซัสซิตี ค่า 1.5 หรือสูงกว่าหมายถึงความเครียดต่ำ; ต่ำกว่า 0.3 หมายถึงความเครียดสูง",
       "title": "ตัวชี้วัดความเครียดทางการเงิน",
       "usFsiValue": "ค่า FSI ของสหรัฐฯ",
       "cissTitle": "EU CISS (ความเครียดระบบในพื้นที่ยูโร)",
